@@ -1,0 +1,15 @@
+/* Career Page Styles */
+.career-page {}
+
+.career-banner {
+  background: linear-gradient(135deg, var(--surface) 0%, var(--primary-alpha) 100%);
+}
+
+.career-card {
+  transition: all var(--transition-fast);
+}
+
+.career-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}

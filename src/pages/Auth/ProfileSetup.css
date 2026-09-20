@@ -1,0 +1,96 @@
+/* Profile Setup CSS */
+.profile-setup-wrapper {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.profile-setup__steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.profile-setup__step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  position: relative;
+}
+
+.profile-setup__step-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+}
+
+.profile-setup__step.active .profile-setup__step-icon {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+  box-shadow: var(--shadow-primary);
+}
+
+.profile-setup__step.done .profile-setup__step-icon {
+  border-color: var(--secondary);
+  background: var(--secondary);
+  color: white;
+}
+
+.profile-setup__step.active .profile-setup__step-label,
+.profile-setup__step.done .profile-setup__step-label {
+  color: var(--text-primary);
+}
+
+.profile-setup__step-line {
+  width: 48px;
+  height: 2px;
+  background: var(--border);
+  margin: 0 var(--space-2);
+}
+
+.profile-setup-card {
+  max-width: 100%;
+}
+
+.profile-setup__emoji {
+  font-size: 48px;
+  margin-bottom: var(--space-3);
+}
+
+.profile-setup__grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.profile-setup__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.profile-setup__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+}

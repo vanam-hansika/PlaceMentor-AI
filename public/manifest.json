@@ -1,0 +1,16 @@
+{
+  "name": "PlaceMentor AI",
+  "short_name": "PlaceMentor",
+  "description": "AI-Powered Placement Preparation PWA with Gemini AI & Neko Companion",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#4F46E5",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

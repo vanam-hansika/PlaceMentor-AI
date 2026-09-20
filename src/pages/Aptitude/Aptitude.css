@@ -1,0 +1,96 @@
+/* Aptitude Module CSS */
+.aptitude-header {
+  margin-bottom: var(--space-6);
+}
+
+.aptitude-categories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.aptitude-cat-card {}
+
+.aptitude-topic-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.aptitude-topic-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+}
+
+/* Quiz UI */
+.quiz-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.quiz-option-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+  width: 100%;
+}
+
+.quiz-option-btn:hover {
+  background: var(--primary-alpha);
+  border-color: var(--primary);
+}
+
+.quiz-option-btn.selected {
+  background: var(--primary-alpha);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.quiz-option-letter {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+}
+
+.quiz-review-card {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  margin-bottom: var(--space-4);
+  background: var(--surface);
+}
+
+.quiz-review-card.correct { border-left: 4px solid var(--secondary); }
+.quiz-review-card.incorrect { border-left: 4px solid var(--danger); }
+
+.quiz-explanation-box {
+  background: var(--surface-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-2);
+}

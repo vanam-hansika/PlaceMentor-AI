@@ -1,0 +1,521 @@
+/* ============================================
+   PlaceMentor AI — AI Face-to-Face Video Interview CSS
+   Clean Studio Background, Prominent Central Spoken Question Hero Board,
+   Female Anime Interviewer & Bottom-Left Student Webcam PIP
+   ============================================ */
+
+.interview-page {
+  position: relative;
+}
+
+.interview-type-card {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.interview-instructions-box {
+  max-width: 650px;
+  margin: 0 auto;
+}
+
+/* FULL-SCREEN VIDEO CANVAS CONTAINER */
+.interview-room-active {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: 100% !important;
+}
+
+.interview-video-canvas {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 75px);
+  min-height: 640px;
+  overflow: hidden;
+  background: #090D16;
+  border-radius: var(--radius-xl);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* CLEAN FUTURISTIC CORPORATE AI STUDIO BACKGROUND (NO SIGNUP FORM) */
+.studio-futuristic-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(circle at 50% 30%, #1E1B4B 0%, #0F172A 60%, #090D16 100%);
+  overflow: hidden;
+}
+
+.studio-light-glow {
+  position: absolute;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(79, 70, 229, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.studio-watermark {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 6rem;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.02);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* TOP HEADER BAR OVERLAY */
+.video-top-bar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: linear-gradient(180deg, rgba(9, 13, 22, 0.9) 0%, transparent 100%);
+  backdrop-filter: blur(10px);
+}
+
+.top-brand-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  backdrop-filter: blur(12px);
+}
+
+.brand-logo-a {
+  background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
+  color: white;
+  font-weight: 900;
+  font-size: 14px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-title {
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.online-dot {
+  width: 8px;
+  height: 8px;
+  background: #10B981;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #10B981;
+}
+
+.online-text {
+  color: #10B981;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* HEADER INFO PILLS */
+.header-info-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 12px;
+  backdrop-filter: blur(12px);
+}
+
+.info-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+}
+
+.info-value {
+  color: white;
+  font-weight: 700;
+}
+
+.header-icon-btn {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.header-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.btn-leave-top {
+  background: #EF4444;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-leave-top:hover {
+  background: #DC2626;
+  transform: scale(1.04);
+}
+
+/* MAIN OVERLAY WORKSPACE */
+.video-overlay-workspace {
+  position: relative;
+  z-index: 5;
+  flex: 1;
+  padding: 12px 28px;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  align-items: center;
+}
+
+/* HERO CENTER AREA: PROMINENT SPOKEN QUESTION BOARD & ANIME INTERVIEWER */
+.hero-spoken-question-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.hero-question-card {
+  width: 100%;
+  max-width: 620px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1.5px solid rgba(99, 102, 241, 0.5);
+  backdrop-filter: blur(20px);
+  padding: 20px 24px;
+  border-radius: 24px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  text-align: left;
+}
+
+.hero-question-text {
+  line-height: 1.45;
+  color: white;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.btn-repeat-text {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-repeat-text:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.interviewer-avatar-center-stage {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  justify-content: center;
+}
+
+/* RIGHT SIDE FLOATING CARD: LISTENING & TRANSCRIPT */
+.floating-card-listening {
+  background: rgba(15, 23, 42, 0.92);
+  border: 1.5px solid rgba(16, 185, 129, 0.4);
+  backdrop-filter: blur(20px);
+  padding: 18px;
+  border-radius: 24px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.listening-dot {
+  width: 8px;
+  height: 8px;
+  background: #10B981;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* EQUALIZER WAVEFORM */
+.equalizer-waveform {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  justify-content: center;
+}
+
+.equalizer-waveform .bar {
+  width: 3px;
+  height: 100%;
+  background: #38BDF8;
+  border-radius: 2px;
+  animation: eqPulse 0.8s ease-in-out infinite alternate;
+}
+
+.equalizer-waveform .bar:nth-child(2) { animation-delay: 0.1s; }
+.equalizer-waveform .bar:nth-child(3) { animation-delay: 0.2s; }
+.equalizer-waveform .bar:nth-child(4) { animation-delay: 0.3s; }
+.equalizer-waveform .bar:nth-child(5) { animation-delay: 0.4s; }
+.equalizer-waveform .bar:nth-child(6) { animation-delay: 0.5s; }
+
+@keyframes eqPulse {
+  0% { height: 4px; }
+  100% { height: 20px; }
+}
+
+.input-glass {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  color: white;
+  padding: 12px;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.input-glass:focus {
+  border-color: #3B82F6;
+}
+
+/* BOTTOM-LEFT CORNER: USER WEBCAM PIP BOX */
+.user-webcam-pip {
+  position: absolute;
+  bottom: 85px;
+  left: 28px;
+  width: 180px;
+  height: 135px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 2px solid var(--primary);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.webcam-video-element {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.webcam-off-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.webcam-name-tag {
+  position: absolute;
+  bottom: 6px;
+  left: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  backdrop-filter: blur(4px);
+}
+
+/* BOTTOM FLOATING VIDEO CALL CONTROL BAR */
+.video-bottom-control-bar {
+  position: relative;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 14px 28px;
+  background: rgba(9, 13, 22, 0.92);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+}
+
+.control-circle-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.control-circle-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.control-circle-btn.inactive {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #EF4444;
+  color: #EF4444;
+}
+
+.control-circle-btn.active-mic {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10B981;
+  color: #10B981;
+}
+
+.control-label {
+  position: absolute;
+  bottom: -20px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* PROMINENT CENTRAL BLUE GLOWING TAP TO SPEAK BUTTON */
+.central-speak-btn {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  border: 2px solid #60A5FA;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 25px rgba(37, 99, 235, 0.6);
+  transition: all 0.2s ease;
+}
+
+.central-speak-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 35px rgba(37, 99, 235, 0.8);
+}
+
+.central-speak-btn.recording {
+  background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+  border-color: #F87171;
+  box-shadow: 0 0 30px rgba(220, 38, 38, 0.8);
+}
+
+.btn-glow-pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(96, 165, 250, 0.5);
+  animation: centralPulse 2s ease-in-out infinite;
+}
+
+@keyframes centralPulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+
+.central-btn-label {
+  position: absolute;
+  bottom: -22px;
+  font-size: 11px;
+  color: white;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.btn-end-call {
+  background: #EF4444 !important;
+  border-color: #DC2626 !important;
+  color: white !important;
+}
+
+.btn-end-call:hover {
+  background: #DC2626 !important;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.6);
+}
+
+/* RESPONSIVE DESIGN FOR TABLETS & MOBILE */
+@media (max-width: 992px) {
+  .video-overlay-workspace {
+    grid-template-columns: 1fr;
+    padding: 12px;
+    gap: 12px;
+  }
+  .hero-question-card {
+    max-width: 100%;
+  }
+  .user-webcam-pip {
+    bottom: 75px;
+    left: 12px;
+    width: 120px;
+    height: 90px;
+  }
+  .video-bottom-control-bar {
+    gap: 10px;
+    padding: 8px 10px;
+  }
+  .control-circle-btn {
+    width: 42px;
+    height: 42px;
+  }
+  .central-speak-btn {
+    width: 50px;
+    height: 50px;
+  }
+}

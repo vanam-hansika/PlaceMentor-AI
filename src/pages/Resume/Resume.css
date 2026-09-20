@@ -1,0 +1,37 @@
+/* Resume Page Styles */
+.resume-page {}
+
+.ats-resume-container {
+  max-width: 800px;
+  margin: 0 auto;
+  background: white !important;
+  color: #1e293b !important;
+  box-shadow: var(--shadow-xl);
+}
+
+.ats-resume-paper {
+  padding: 40px;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #1e293b;
+}
+
+.ats-section-title {
+  color: #334155;
+  border-bottom: 1.5px solid #cbd5e1;
+}
+
+/* Print CSS */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .hide-print, .sidebar, .topbar, .bottom-nav, #neko-companion {
+    display: none !important;
+  }
+  .ats-resume-container {
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+}

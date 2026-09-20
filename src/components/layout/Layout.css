@@ -1,0 +1,49 @@
+/* ============================================
+   Layout CSS
+   ============================================ */
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.layout__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-left: var(--sidebar-width);
+  transition: margin-left var(--transition-base);
+}
+
+.layout--collapsed .layout__main {
+  margin-left: var(--sidebar-collapsed);
+}
+
+.layout__content {
+  flex: 1;
+  padding-top: var(--topbar-height);
+  overflow-x: hidden;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .layout__main {
+    margin-left: 0;
+  }
+  .layout__content {
+    padding-top: var(--topbar-height);
+    padding-bottom: var(--bottom-nav-height);
+  }
+}
+
+/* Tablet */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .layout__main {
+    margin-left: var(--sidebar-collapsed);
+  }
+  .layout--collapsed .layout__main {
+    margin-left: var(--sidebar-collapsed);
+  }
+}

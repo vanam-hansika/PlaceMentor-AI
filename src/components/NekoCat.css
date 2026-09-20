@@ -1,0 +1,219 @@
+/* ============================================
+   Neko Cat CSS — Interactive 3D Anime Floating Companion
+   Transparent Background, Continuous 3D Tail Wagging & Physics
+   ============================================ */
+
+.neko {
+  position: fixed;
+  bottom: calc(var(--bottom-nav-height) + var(--space-4));
+  right: var(--space-4);
+  z-index: var(--z-neko);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+@media (min-width: 769px) {
+  .neko { bottom: var(--space-6); }
+}
+
+/* === Speech Bubble === */
+.neko__bubble {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  right: 0;
+  background: var(--surface);
+  border: 2px solid var(--primary);
+  border-radius: var(--radius-xl) var(--radius-xl) var(--radius-sm) var(--radius-xl);
+  padding: var(--space-3) var(--space-4);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), 0 0 16px rgba(56, 189, 248, 0.25);
+  max-width: 220px;
+  animation: fadeInUp 0.3s var(--transition-spring);
+  backdrop-filter: blur(10px);
+}
+
+.neko__bubble p {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.neko__bubble-tail {
+  position: absolute;
+  bottom: -8px;
+  right: 24px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid var(--primary);
+}
+
+.neko__bubble-tail::after {
+  content: '';
+  position: absolute;
+  top: -9px;
+  left: -7px;
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 7px solid var(--surface);
+}
+
+/* === Expanded Gamification Panel === */
+.neko__panel {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  padding: var(--space-4);
+  width: 250px;
+  animation: scaleIn 0.3s var(--transition-spring);
+}
+
+.neko__panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.neko__panel-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+}
+
+.neko__panel-emotion {
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-weight: var(--font-medium);
+  margin-bottom: var(--space-3);
+}
+
+.neko__panel-tips {
+  background: var(--primary-alpha);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.neko__panel-tip {
+  font-size: var(--text-xs);
+  color: var(--primary-dark);
+  font-weight: var(--font-medium);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.neko__panel-xp { margin-bottom: var(--space-2); }
+
+/* === Transparent 3D Floating Character Container (No Dark Box) === */
+.neko-3d-floating-avatar {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.neko-3d-floating-avatar:hover {
+  transform: scale(1.08) translateY(-4px);
+}
+
+/* Floating Glow Aura */
+.neko-3d-floating-aura {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  filter: blur(20px);
+  opacity: 0.5;
+  animation: auraPulse 3.5s ease-in-out infinite alternate;
+}
+
+/* 3D Floating Canvas Animations */
+.neko-3d-floating-canvas {
+  position: relative;
+  z-index: 5;
+  animation: floatPhysics 3.8s ease-in-out infinite;
+}
+
+/* Continuous 3D Tail Wagging Animation */
+.tail-wag-3d {
+  animation: tailWag3D 2.2s ease-in-out infinite alternate;
+  transform-origin: 135px 130px;
+}
+
+/* 3D Ear Twitching Animation */
+.ear-twitch-3d {
+  animation: earTwitch 4.5s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+/* 3D Waving Paw Animation */
+.paw-wave-3d {
+  animation: pawWave 2.8s ease-in-out infinite alternate;
+  transform-origin: 152px 120px;
+}
+
+/* Performance Mood Pill */
+.neko-3d-floating-pill {
+  position: absolute;
+  bottom: -4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* Physics Keyframe Animations */
+@keyframes floatPhysics {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-7px) rotate(1deg); }
+}
+
+@keyframes auraPulse {
+  0% { transform: scale(0.85); opacity: 0.35; }
+  100% { transform: scale(1.12); opacity: 0.65; }
+}
+
+@keyframes tailWag3D {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(14deg); }
+}
+
+@keyframes earTwitch {
+  0%, 90%, 100% { transform: rotate(0deg); }
+  92% { transform: rotate(-5deg); }
+  96% { transform: rotate(5deg); }
+}
+
+@keyframes pawWave {
+  0%, 80% { transform: translateY(0) rotate(0deg); }
+  90% { transform: translateY(-4px) rotate(-14deg); }
+  100% { transform: translateY(0) rotate(0deg); }
+}

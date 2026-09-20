@@ -1,0 +1,10 @@
+/* Achievements Styles */
+.achievement-card {
+  position: relative;
+  transition: all var(--transition-base);
+}
+
+.achievement-card.locked {
+  opacity: 0.65;
+  filter: grayscale(0.8);
+}

@@ -1,0 +1,126 @@
+/* AI Mentor Styles */
+.ai-mentor-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+  background: linear-gradient(135deg, var(--surface) 0%, var(--primary-alpha) 100%);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.ai-mentor-avatar {
+  font-size: 44px;
+  animation: robotBob 3s ease-in-out infinite;
+}
+
+.ai-mentor-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: var(--space-5);
+}
+
+@media (max-width: 900px) {
+  .ai-mentor-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ai-mentor-left, .ai-mentor-right {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ai-mentor-rec-box {
+  border-left: 4px solid var(--accent);
+}
+
+.ai-mentor-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ai-mentor-task-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+}
+
+/* AI Mentor Chat Interface */
+.ai-mentor-chat-card {
+  display: flex;
+  flex-direction: column;
+  height: 520px;
+}
+
+.ai-mentor-chat-header {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-3);
+}
+
+.ai-mentor-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.chat-message {
+  display: flex;
+  gap: var(--space-3);
+  max-width: 85%;
+}
+
+.user-msg {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.mentor-msg {
+  align-self: flex-start;
+}
+
+.chat-avatar {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.chat-bubble {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  position: relative;
+}
+
+.user-msg .chat-bubble {
+  background: var(--primary);
+  color: white;
+  border-bottom-right-radius: 2px;
+}
+
+.mentor-msg .chat-bubble {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  border-bottom-left-radius: 2px;
+  border: 1px solid var(--border-light);
+}
+
+.chat-time {
+  display: block;
+  font-size: 10px;
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+.user-msg .chat-time {
+  text-align: right;
+  color: rgba(255, 255, 255, 0.8);
+}
