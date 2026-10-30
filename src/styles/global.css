@@ -504,7 +504,7 @@ p { color: var(--text-secondary); line-height: var(--leading-relaxed); }
 }
 
 @media (max-width: 768px) {
-  .page { padding: var(--space-4) var(--space-4) calc(var(--bottom-nav-height) + var(--space-4)); }
+  .page { padding: var(--space-4) var(--space-4) calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + var(--space-6)); }
 }
 
 /* Empty state */

@@ -3,7 +3,7 @@
 // ============================================
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Bell, Search, Moon, Sun, User, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { Bell, Search, Moon, Sun, User, Settings, LogOut, ChevronDown, Menu } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import './TopBar.css';
@@ -16,6 +16,7 @@ const pageLabels = {
   '/interview': 'AI Face-to-Face Interview',
   '/companies': 'Target Company Roadmap',
   '/jobs': 'Jobs & Internships',
+  '/roadmaps': 'Career Roadmaps 🗺️',
   '/career': 'AI Career Recommendation',
   '/resume': 'AI Resume Builder',
   '/resources': 'Study Resources',
@@ -24,10 +25,11 @@ const pageLabels = {
   '/friends': 'Friends & Leaderboard',
   '/settings': 'Settings',
   '/profile': 'Profile Settings',
+  '/admin': 'Admin Portal 🛠️',
 };
 
 export default function TopBar() {
-  const { theme, toggleTheme, notifications } = useApp();
+  const { theme, toggleTheme, notifications, toggleMobileNav } = useApp();
   const { user, userProfile, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,8 +59,16 @@ export default function TopBar() {
 
   return (
     <header className="topbar">
-      {/* Page title */}
+      {/* Page title + Mobile Hamburger Button */}
       <div className="topbar__left">
+        <button
+          type="button"
+          className="topbar__hamburger-btn"
+          onClick={toggleMobileNav}
+          aria-label="Open navigation menu"
+        >
+          <Menu size={20} />
+        </button>
         <h1 className="topbar__title">{pageTitle}</h1>
       </div>
 

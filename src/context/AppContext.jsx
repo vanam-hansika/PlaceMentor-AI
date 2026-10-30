@@ -15,6 +15,7 @@ const initialState = {
   nekoVisible: true,
   currentStreak: 0,
   todayActivities: { coding: false, aptitude: false, interview: false },
+  mobileNavOpen: false,
 };
 
 function appReducer(state, action) {
@@ -29,6 +30,12 @@ function appReducer(state, action) {
 
     case 'SET_SIDEBAR':
       return { ...state, sidebarCollapsed: action.payload };
+
+    case 'TOGGLE_MOBILE_NAV':
+      return { ...state, mobileNavOpen: !state.mobileNavOpen };
+
+    case 'SET_MOBILE_NAV':
+      return { ...state, mobileNavOpen: Boolean(action.payload) };
 
     case 'ADD_TOAST':
       const toast = { id: Date.now(), ...action.payload };
@@ -112,6 +119,9 @@ export function AppProvider({ children }) {
   const setTheme = (theme) => dispatch({ type: 'SET_THEME', payload: theme });
   const toggleTheme = () => setTheme(state.theme === 'dark' ? 'light' : 'dark');
   const toggleSidebar = () => dispatch({ type: 'TOGGLE_SIDEBAR' });
+  const toggleMobileNav = () => dispatch({ type: 'TOGGLE_MOBILE_NAV' });
+  const openMobileNav = () => dispatch({ type: 'SET_MOBILE_NAV', payload: true });
+  const closeMobileNav = () => dispatch({ type: 'SET_MOBILE_NAV', payload: false });
 
   const showToast = (message, type = 'info', duration = 3000) => {
     const id = Date.now();
@@ -135,6 +145,9 @@ export function AppProvider({ children }) {
       setTheme,
       toggleTheme,
       toggleSidebar,
+      toggleMobileNav,
+      openMobileNav,
+      closeMobileNav,
       showToast,
       setNekoEmotion,
       completeActivity,

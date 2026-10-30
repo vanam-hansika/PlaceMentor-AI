@@ -7,6 +7,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import TopBar from './TopBar';
+import MobileNavDrawer from './MobileNavDrawer';
 import NekoCat from '../NekoCat';
 import ToastContainer from '../ui/ToastContainer';
 import { useApp } from '../../context/AppContext';
@@ -25,6 +26,9 @@ export default function Layout() {
     <div className={`layout ${sidebarCollapsed ? 'layout--collapsed' : ''}`}>
       {/* Desktop/Tablet Sidebar */}
       <Sidebar />
+
+      {/* Mobile Navigation Drawer (All Features Access) */}
+      <MobileNavDrawer />
 
       {/* Main content area */}
       <div className="layout__main">
