@@ -124,3 +124,13 @@
   text-align: right;
   color: rgba(255, 255, 255, 0.8);
 }
+
+.mentor-msg .chat-bubble.chat-bubble-error {
+  border-left: 3px solid var(--danger, #ef4444);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.btn-xs {
+  padding: 3px 8px;
+  font-size: 11px;
+}

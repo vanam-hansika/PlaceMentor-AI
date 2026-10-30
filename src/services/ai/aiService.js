@@ -22,14 +22,10 @@ export const aiService = {
   },
 
   /**
-   * Get interactive AI Placement Mentor chat answer
+   * Get interactive AI Placement Mentor chat answer (Dr. Elena Rostova)
    */
-  getMentorChatResponse: async (question, userData) => {
-    try {
-      const ans = await geminiProvider.getMentorChatResponse(question, userData);
-      if (ans) return ans;
-    } catch {}
-    return n8nProvider.getMentorAdvice({ question, userData });
+  getMentorChatResponse: async (question, userData, history = []) => {
+    return await geminiProvider.getMentorChatResponse({ question, userData, history });
   },
 
   /**

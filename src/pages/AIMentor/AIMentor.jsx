@@ -6,11 +6,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Brain, Sparkles, Target, BookOpen, Code2, Video, RefreshCw,
   CheckCircle2, AlertTriangle, ArrowRight, Lightbulb, Send,
-  MessageSquare, User, Bot, Flame, ShieldAlert, Award
+  MessageSquare, User, Bot, Flame, ShieldAlert, Award, Key, X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { aiService } from '../../services/ai/aiService';
+import { getGeminiApiKey, setGeminiApiKey } from '../../services/ai/geminiProvider';
 import ProfessionalFemaleAnimeMentor from '../../components/ProfessionalFemaleAnimeMentor';
 import './AIMentor.css';
 
@@ -22,12 +23,18 @@ export default function AIMentor() {
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [studyPlan, setStudyPlan] = useState(null);
 
+  // Gemini API Key State
+  const [apiKey, setApiKey] = useState(getGeminiApiKey());
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [keyInput, setKeyInput] = useState('');
+
   // Chat State
   const [messages, setMessages] = useState([
     {
       sender: 'mentor',
-      text: `Hello ${userProfile?.displayName?.split(' ')[0] || 'Student'}! 👋 I'm Dr. Elena Rostova, your Senior Placement Mentor. I've reviewed your current target of ${userProfile?.targetCompany || 'Top Tech Companies'}. How can I assist your placement preparation today?`,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      text: `Hello ${userProfile?.displayName?.split(' ')[0] || 'Student'}! 👋 I'm Dr. Elena Rostova, your Senior Placement & Career Mentor. How can I assist your career planning or placement preparation today?`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isGreeting: true
     }
   ]);
   const [inputMsg, setInputMsg] = useState('');
@@ -37,6 +44,16 @@ export default function AIMentor() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const handleSaveApiKey = (e) => {
+    e.preventDefault();
+    if (!keyInput.trim()) return;
+    setGeminiApiKey(keyInput.trim());
+    setApiKey(keyInput.trim());
+    setShowKeyModal(false);
+    setKeyInput('');
+    showToast('Gemini API key configured successfully! ✨', 'success');
+  };
 
   // ON-DEMAND API TRIGGER
   const generatePlan = async () => {
@@ -76,34 +93,67 @@ export default function AIMentor() {
     const userText = inputMsg.trim();
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    // Immediately display user message
     setMessages(prev => [...prev, { sender: 'user', text: userText, time: timeStr }]);
     setInputMsg('');
     setSendingMsg(true);
     setNekoEmotion('thinking');
 
     try {
-      const aiReply = await aiService.getMentorChatResponse(userText, userProfile);
+      const aiReply = await aiService.getMentorChatResponse(userText, userProfile, messages);
+      if (!aiReply || !aiReply.trim()) {
+        throw new Error('Received an empty response from Dr. Elena. Please try rephrasing your question.');
+      }
+
       setMessages(prev => [
         ...prev,
         {
           sender: 'mentor',
-          text: aiReply || `Great question regarding ${userProfile?.targetCompany || 'placements'}! Focus on building strong fundamentals in data structures, practicing timed aptitude daily, and preparing structured STAR framework answers for behavioral rounds. You are making steady progress!`,
+          text: aiReply.trim(),
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
       setNekoEmotion('happy');
     } catch (err) {
+      console.error('[Dr. Elena Mentor Error]', err);
+      const isMissingKey = err.message && (err.message.includes('MISSING_API_KEY') || err.message.includes('API key is not configured'));
+
       setMessages(prev => [
         ...prev,
         {
           sender: 'mentor',
-          text: `Focus on mastering core programming concepts and practicing previous company patterns for ${userProfile?.targetCompany || 'tech roles'}. Consistency is your key to success! 💪`,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          text: isMissingKey
+            ? `⚠️ **Gemini API Key Required**\n\nDr. Elena connects to Google Gemini to provide live, personalized mentoring. Please click **"Configure API Key"** above to enter your free key from Google AI Studio, or add \`VITE_GEMINI_API_KEY\` to your \`.env\` file.`
+            : `⚠️ **Unable to get response from Dr. Elena:**\n${err.message || 'An error occurred while communicating with the AI service.'}\n\nPlease check your question or connection and try again.`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isError: true
         }
       ]);
+      setNekoEmotion('sad');
+      if (isMissingKey) {
+        setShowKeyModal(true);
+      }
     } finally {
       setSendingMsg(false);
     }
+  };
+
+  const renderMessageContent = (text) => {
+    if (!text) return null;
+    return text.split('\n').map((line, lineIdx) => {
+      const parts = line.split(/(\*\*[^*]+\*\*)/g);
+      return (
+        <React.Fragment key={lineIdx}>
+          {parts.map((part, pIdx) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={pIdx}>{part.slice(2, -2)}</strong>;
+            }
+            return part;
+          })}
+          {lineIdx < text.split('\n').length - 1 && <br />}
+        </React.Fragment>
+      );
+    });
   };
 
   function getFallbackPlan() {
@@ -266,14 +316,66 @@ export default function AIMentor() {
       {activeTab === 'chat' && (
         <div className="card ai-mentor-chat-card animate-fadeInUp">
           <div className="ai-mentor-chat-header">
-            <div className="flex items-center gap-3">
-              <ProfessionalFemaleAnimeMentor />
-              <div>
-                <h3 className="text-base font-bold" style={{ margin: 0 }}>Ask Dr. Elena Rostova</h3>
-                <p className="text-xs text-muted">Ask anything about company interviews, resume tips, coding advice, or salary negotiation.</p>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-3">
+                <ProfessionalFemaleAnimeMentor />
+                <div>
+                  <h3 className="text-base font-bold" style={{ margin: 0 }}>Ask Dr. Elena Rostova</h3>
+                  <p className="text-xs text-muted">Direct, structured answers for career paths, roadmaps, technical concepts, and interview prep.</p>
+                </div>
               </div>
+              <button
+                type="button"
+                className={`btn ${apiKey ? 'btn-outline' : 'btn-primary'} btn-xs flex items-center gap-1`}
+                onClick={() => setShowKeyModal(prev => !prev)}
+                title="Configure Google Gemini API Key"
+              >
+                <Key size={12} /> {apiKey ? 'API Key Configured ✓' : 'Configure API Key'}
+              </button>
             </div>
           </div>
+
+          {showKeyModal && (
+            <div className="card p-3 mb-3 animate-fadeInDown" style={{ background: 'var(--surface-2)', border: '1px solid var(--primary)', borderRadius: '8px' }}>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs font-bold flex items-center gap-1">
+                  <Key size={14} className="text-primary-color" /> Google Gemini API Key Configuration
+                </span>
+                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setShowKeyModal(false)}>
+                  <X size={14} />
+                </button>
+              </div>
+              <p className="text-xs text-muted mb-2">
+                Get a free Gemini API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', color: 'var(--primary)', fontWeight: 'bold' }}>Google AI Studio</a>. Key is securely stored locally in your browser.
+              </p>
+              <form onSubmit={handleSaveApiKey} className="flex gap-2">
+                <input
+                  type="password"
+                  className="input flex-1 text-xs"
+                  placeholder="Paste your AIzaSy... key here"
+                  value={keyInput}
+                  onChange={e => setKeyInput(e.target.value)}
+                  autoFocus
+                />
+                <button type="submit" className="btn btn-primary btn-sm text-xs" disabled={!keyInput.trim()}>
+                  Save Key
+                </button>
+                {apiKey && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm text-xs text-danger"
+                    onClick={() => {
+                      setGeminiApiKey('');
+                      setApiKey('');
+                      showToast('Gemini API key removed', 'info');
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </form>
+            </div>
+          )}
 
           <div className="ai-mentor-chat-messages">
             {messages.map((m, idx) => (
@@ -281,8 +383,10 @@ export default function AIMentor() {
                 <div className="chat-avatar">
                   {m.sender === 'user' ? '👤' : '👩‍🏫'}
                 </div>
-                <div className="chat-bubble">
-                  <p className="text-sm" style={{ margin: 0, whiteSpace: 'pre-line' }}>{m.text}</p>
+                <div className={`chat-bubble ${m.isError ? 'chat-bubble-error' : ''}`}>
+                  <div className="text-sm" style={{ margin: 0, lineHeight: 1.5 }}>
+                    {renderMessageContent(m.text)}
+                  </div>
                   <span className="text-xs text-muted chat-time">{m.time}</span>
                 </div>
               </div>
@@ -302,7 +406,7 @@ export default function AIMentor() {
           <form onSubmit={handleSendMessage} className="ai-mentor-chat-input flex gap-2 pt-3 border-t">
             <input
               className="input flex-1 text-sm"
-              placeholder="e.g. How do I clear the Amazon SDE 1 coding round?"
+              placeholder="e.g. Can I choose cloud computing as my career goal? Is it good for placements?"
               value={inputMsg}
               onChange={e => setInputMsg(e.target.value)}
               disabled={sendingMsg}

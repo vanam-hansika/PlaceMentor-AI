@@ -8,9 +8,10 @@ import { useApp } from '../../context/AppContext';
 import {
   User, Settings as SettingsIcon, Moon, Sun, Bell, Shield, LogOut,
   BellRing, BellOff, Sparkles, BookOpen, Briefcase, Download, CheckCircle2,
-  AlertCircle, Send, RefreshCw, Smartphone
+  AlertCircle, Send, RefreshCw, Smartphone, Key, Check
 } from 'lucide-react';
 import { messagingService } from '../../services/notifications/messagingService';
+import { getGeminiApiKey, setGeminiApiKey } from '../../services/ai/geminiProvider';
 import './Settings.css';
 
 export default function Settings() {
@@ -23,6 +24,10 @@ export default function Settings() {
     preferredLanguage: userProfile?.preferredLanguage || 'Python',
     branch: userProfile?.branch || 'Computer Science',
   });
+
+  // Gemini API Key State
+  const [geminiKeyInput, setGeminiKeyInput] = useState(getGeminiApiKey());
+  const [isSavedKey, setIsSavedKey] = useState(Boolean(getGeminiApiKey()));
 
   // Notification State
   const [permissionState, setPermissionState] = useState(messagingService.getPermissionState());
@@ -65,6 +70,19 @@ export default function Settings() {
     } catch {
       showToast('Failed to update settings.', 'error');
     }
+  };
+
+  const handleSaveGeminiKey = (e) => {
+    e.preventDefault();
+    if (!geminiKeyInput.trim()) {
+      setGeminiApiKey('');
+      setIsSavedKey(false);
+      showToast('Gemini API key cleared', 'info');
+      return;
+    }
+    setGeminiApiKey(geminiKeyInput.trim());
+    setIsSavedKey(true);
+    showToast('Gemini API key saved successfully! ✨', 'success');
   };
 
   // 1. Enable Push Notifications (explicit user opt-in)
@@ -221,6 +239,47 @@ export default function Settings() {
             <button type="submit" className="btn btn-primary btn-sm mt-2">
               Save Profile Changes
             </button>
+          </form>
+        </div>
+
+        {/* Gemini AI Integration Card */}
+        <div className="card">
+          <h3 className="text-base font-bold mb-3 flex items-center gap-2">
+            <Key size={18} className="text-primary" /> Google Gemini AI Integration
+          </h3>
+          <p className="text-xs text-secondary-color mb-3" style={{ lineHeight: 1.5 }}>
+            Powers <strong>Dr. Elena Rostova AI Mentor</strong>. Get your free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline', color: 'var(--primary)', fontWeight: 'bold' }}>Google AI Studio</a>.
+          </p>
+          <form onSubmit={handleSaveGeminiKey} className="flex flex-col gap-3 text-xs">
+            <div className="input-group">
+              <label className="input-label">Gemini API Key</label>
+              <input
+                type="password"
+                className="input text-xs"
+                placeholder="AIzaSy... (or set VITE_GEMINI_API_KEY in .env)"
+                value={geminiKeyInput}
+                onChange={e => setGeminiKeyInput(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" className="btn btn-primary btn-sm">
+                {isSavedKey ? 'Update API Key' : 'Save API Key'}
+              </button>
+              {isSavedKey && (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm text-danger"
+                  onClick={() => {
+                    setGeminiApiKey('');
+                    setGeminiKeyInput('');
+                    setIsSavedKey(false);
+                    showToast('Gemini API key cleared', 'info');
+                  }}
+                >
+                  Clear Key
+                </button>
+              )}
+            </div>
           </form>
         </div>
 
