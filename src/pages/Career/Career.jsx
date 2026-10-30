@@ -3,9 +3,10 @@
 // On-demand career path analysis with Gemini AI
 // ============================================
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Compass, Sparkles, CheckCircle2, TrendingUp, ArrowRight,
-  RefreshCw, Code2, Database, Shield, Cloud, Terminal, Cpu, Award
+  RefreshCw, Code2, Database, Shield, Cloud, Terminal, Cpu, Award, Map
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
@@ -13,6 +14,7 @@ import { aiService } from '../../services/ai/aiService';
 import './Career.css';
 
 export default function Career() {
+  const navigate = useNavigate();
   const { userProfile } = useAuth();
   const { setNekoEmotion, showToast } = useApp();
 
@@ -171,6 +173,16 @@ export default function Career() {
                 <div className="quiz-explanation-box text-xs font-mono" style={{ whiteSpace: 'pre-line' }}>
                   {rec.learningDirection}
                 </div>
+              </div>
+
+              {/* Interactive Roadmap Link */}
+              <div className="mt-4 pt-3 border-t flex justify-end">
+                <button
+                  className="btn btn-primary btn-sm flex items-center gap-1"
+                  onClick={() => navigate('/roadmaps')}
+                >
+                  <Map size={14} /> Open Interactive Career Roadmap 🗺️ <ArrowRight size={13} />
+                </button>
               </div>
             </div>
           ))}

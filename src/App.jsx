@@ -8,6 +8,7 @@ import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Layout
 import Layout from './components/layout/Layout';
@@ -36,6 +37,8 @@ const Settings = lazy(() => import('./pages/Settings/Settings'));
 // Feature Modules
 const Jobs = lazy(() => import('./pages/Jobs/Jobs'));
 const Career = lazy(() => import('./pages/Career/Career'));
+const Roadmaps = lazy(() => import('./pages/Roadmaps/Roadmaps'));
+const RoadmapDetail = lazy(() => import('./pages/Roadmaps/RoadmapDetail'));
 const Resume = lazy(() => import('./pages/Resume/Resume'));
 const Admin = lazy(() => import('./pages/Admin/Admin'));
 
@@ -52,10 +55,11 @@ function ModuleFallback({ message = 'Loading module...' }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppProvider>
-          <Routes>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppProvider>
+            <Routes>
             {/* Public Auth Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
@@ -134,6 +138,18 @@ export default function App() {
                   </Suspense>
                 } />
 
+                <Route path="/roadmaps" element={
+                  <Suspense fallback={<ModuleFallback message="Loading Career Roadmaps..." />}>
+                    <Roadmaps />
+                  </Suspense>
+                } />
+
+                <Route path="/roadmaps/:roadmapId" element={
+                  <Suspense fallback={<ModuleFallback message="Loading Career Roadmap Path..." />}>
+                    <RoadmapDetail />
+                  </Suspense>
+                } />
+
                 <Route path="/resume" element={
                   <Suspense fallback={<ModuleFallback message="Loading Resume Builder..." />}>
                     <Resume />
@@ -169,5 +185,6 @@ export default function App() {
         </AppProvider>
       </AuthProvider>
     </BrowserRouter>
+  </ErrorBoundary>
   );
 }

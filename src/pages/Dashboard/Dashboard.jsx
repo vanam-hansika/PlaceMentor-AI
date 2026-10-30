@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Brain, Code2, BookOpen, Video, ArrowRight,
   Flame, Trophy, Zap, Target, Calendar, TrendingUp,
-  Clock, Star, ChevronRight, Play
+  Clock, Star, ChevronRight, Play, CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
@@ -16,6 +16,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import CircularProgress from '../../components/ui/CircularProgress';
 import ProfessionalFemaleAnimeMentor from '../../components/ProfessionalFemaleAnimeMentor';
+import { progressService, getTodayDateStr } from '../../services/progress/progressService';
 import './Dashboard.css';
 
 export default function Dashboard() {
@@ -35,9 +36,15 @@ export default function Dashboard() {
   // Live Firestore updates
   useEffect(() => {
     if (!user?.uid) return;
-    const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
-      if (snap.exists()) setProfile(snap.data());
-    });
+    const unsub = onSnapshot(
+      doc(db, 'users', user.uid),
+      snap => {
+        if (snap.exists()) setProfile(snap.data());
+      },
+      err => {
+        console.warn('[Dashboard Profile Snapshot Notice]', err);
+      }
+    );
     return unsub;
   }, [user?.uid]);
 
@@ -47,11 +54,21 @@ export default function Dashboard() {
   const codingScore = profile?.codingScore || 0;
   const aptitudeScore = profile?.aptitudeScore || 0;
 
-  const todayGoals = [
-    { label: 'Solve 2 Coding Problems', done: false, path: '/coding', icon: '💻' },
-    { label: 'Practice 10 Aptitude Questions', done: false, path: '/aptitude', icon: '📊' },
-    { label: 'Complete a Mock Interview', done: false, path: '/interview', icon: '🎤' },
-  ];
+  // Dynamic Today's Goals & Real Learning Progress from Student Activity
+  const todayGoals = progressService.getTodayGoalsStatus(profile);
+  const continueItems = progressService.getContinueLearningStatus(profile);
+
+  // Compute 7-day streak activity for current week (Mon - Sun)
+  const getStreakDayActive = (dayIndex) => {
+    const today = new Date();
+    const currentDayOfWeek = (today.getDay() + 6) % 7; // Monday = 0
+    if (dayIndex > currentDayOfWeek) return false;
+    const diff = currentDayOfWeek - dayIndex;
+    const targetDate = new Date();
+    targetDate.setDate(today.getDate() - diff);
+    const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+    return Boolean(profile?.dailyActivity?.[dateStr] || (diff === 0 && streak > 0));
+  };
 
   const quickStats = [
     { label: 'Day Streak', value: streak, icon: '🔥', color: 'accent', suffix: '' },
@@ -103,10 +120,24 @@ export default function Dashboard() {
             </div>
             <div className="dashboard__goals-list">
               {todayGoals.map((goal, i) => (
-                <button key={i} className="dashboard__goal-item" onClick={() => navigate(goal.path)}>
-                  <span className="dashboard__goal-emoji">{goal.emoji || goal.icon}</span>
-                  <span className="dashboard__goal-label">{goal.label}</span>
-                  <ChevronRight size={16} className="text-muted" />
+                <button
+                  key={goal.id || i}
+                  className={`dashboard__goal-item ${goal.done ? 'dashboard__goal-item--done' : ''}`}
+                  onClick={() => navigate(goal.path)}
+                >
+                  <span className="dashboard__goal-emoji">{goal.icon}</span>
+                  <div className="flex-1 text-left">
+                    <span className={`dashboard__goal-label ${goal.done ? 'line-through text-muted' : ''}`} style={{ fontSize: 'var(--text-xs)' }}>
+                      {goal.label}
+                    </span>
+                  </div>
+                  {goal.done ? (
+                    <span className="badge badge-teal text-xs flex items-center gap-1 font-semibold">
+                      <CheckCircle2 size={13} /> Done
+                    </span>
+                  ) : (
+                    <ChevronRight size={16} className="text-muted" />
+                  )}
                 </button>
               ))}
             </div>
@@ -121,12 +152,8 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="dashboard__continue-list">
-              {[
-                { title: 'Arrays & Strings', sub: 'Coding Practice', path: '/coding', progress: 45, color: 'primary', icon: Code2 },
-                { title: 'Quantitative Aptitude', sub: 'Time & Work', path: '/aptitude', progress: 30, color: 'secondary', icon: BookOpen },
-                { title: 'HR Interview Prep', sub: 'AI Interview', path: '/interview', progress: 20, color: 'purple', icon: Video },
-              ].map((item, i) => {
-                const Icon = item.icon;
+              {continueItems.map((item, i) => {
+                const Icon = item.iconType === 'code' ? Code2 : item.iconType === 'book' ? BookOpen : Video;
                 return (
                   <button key={i} className="dashboard__continue-item" onClick={() => navigate(item.path)}>
                     <div className={`icon-box icon-box-${item.color} icon-box-sm`}><Icon size={14} /></div>
@@ -180,9 +207,9 @@ export default function Dashboard() {
             <div className="dashboard__streak-count">{streak}</div>
             <div className="dashboard__streak-label">Day Streak</div>
             <div className="dashboard__streak-days">
-              {[...Array(7)].map((_, i) => (
-                <div key={i} className={`dashboard__streak-day ${i < (streak % 7) ? 'active' : ''}`}>
-                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}
+              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((dayLetter, i) => (
+                <div key={i} className={`dashboard__streak-day ${getStreakDayActive(i) ? 'active' : ''}`} title={`Week Day ${i+1}`}>
+                  {dayLetter}
                 </div>
               ))}
             </div>

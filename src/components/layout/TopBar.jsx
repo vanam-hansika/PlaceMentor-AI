@@ -99,7 +99,15 @@ export default function TopBar() {
                 </div>
               ) : (
                 notifications.slice(0, 5).map((n, i) => (
-                  <div key={i} className={`topbar__notif-item ${!n.read ? 'unread' : ''}`}>
+                  <div
+                    key={i}
+                    className={`topbar__notif-item ${!n.read ? 'unread' : ''}`}
+                    onClick={() => {
+                      if (n.url) navigate(n.url);
+                      setShowNotifications(false);
+                    }}
+                    style={{ cursor: n.url ? 'pointer' : 'default' }}
+                  >
                     <span className="topbar__notif-dot" />
                     <div>
                       <p className="topbar__notif-title">{n.title}</p>

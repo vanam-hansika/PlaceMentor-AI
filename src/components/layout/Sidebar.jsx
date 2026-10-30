@@ -7,13 +7,13 @@ import {
   LayoutDashboard, Brain, BookOpen, Code2, Video,
   Building2, FileText, BarChart3, Trophy, Users,
   Settings, LogOut, ChevronLeft, ChevronRight,
-  Flame, Zap, Briefcase, Compass, FileCheck, Shield
+  Flame, Zap, Briefcase, Compass, FileCheck, Shield, Map
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
 
-const navItems = [
+const baseNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Brain, label: 'AI Mentor', path: '/mentor' },
   { icon: Code2, label: 'Coding Practice', path: '/coding' },
@@ -21,19 +21,29 @@ const navItems = [
   { icon: BookOpen, label: 'Aptitude', path: '/aptitude' },
   { icon: Building2, label: 'Target Companies', path: '/companies' },
   { icon: Briefcase, label: 'Jobs & Internships', path: '/jobs' },
+  { icon: Map, label: 'Career Roadmaps 🗺️', path: '/roadmaps' },
   { icon: Compass, label: 'Career AI', path: '/career' },
   { icon: FileCheck, label: 'AI Resume Builder', path: '/resume' },
   { icon: BarChart3, label: 'Progress', path: '/progress' },
   { icon: Trophy, label: 'Achievements', path: '/achievements' },
   { icon: Users, label: 'Friends & Leaderboard', path: '/friends' },
   { icon: FileText, label: 'Resources', path: '/resources' },
-  { icon: Shield, label: 'Admin Portal 🛠️', path: '/admin' },
 ];
 
 export default function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useApp();
   const { user, userProfile, logout } = useAuth();
   const navigate = useNavigate();
+
+  // Show Admin Portal navigation ONLY if user is verified administrator
+  const isAdmin =
+    userProfile?.role === 'admin' ||
+    userProfile?.isAdmin === true ||
+    sessionStorage.getItem('pm_admin_session_auth') === 'verified';
+
+  const navItems = isAdmin
+    ? [...baseNavItems, { icon: Shield, label: 'Admin Portal 🛠️', path: '/admin' }]
+    : baseNavItems;
 
   const handleLogout = async () => {
     await logout();

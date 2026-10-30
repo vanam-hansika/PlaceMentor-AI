@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    // ============================================
+    // Users Collection (Strict, Safe, Non-Public)
+    // ============================================
+    match /users/{userId} {
+      // Students can only read their own profile; Admins can read all profiles to manage the student directory
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Authenticated users can only create/update their own profile
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+
+      // Only administrators can delete user records
+      allow delete: if isAdmin();
+
+      // Nested subcollections under a user (notifications, test submissions, etc.)
+      match /{subcollection}/{docId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // ============================================
+    // Opportunities: Internships & Jobs
+    // ============================================
+    match /internships/{internshipId} {
+      // Authenticated users can browse internships
+      allow read: if isAuthenticated();
+      // Only admins can create, update, or delete internships
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /jobs/{jobId} {
+      // Authenticated users can browse jobs
+      allow read: if isAuthenticated();
+      // Only admins can create, update, or delete jobs
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ============================================
+    // Study Notes & Technical Docs
+    // ============================================
+    match /study_notes/{noteId} {
+      // Authenticated users can read study notes
+      allow read: if isAuthenticated();
+      // Only admins can upload, edit, or delete study notes
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ============================================
+    // AI Collected Pipeline Feeds
+    // ============================================
+    match /ai_collected_feed/{itemId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================
+    // Web Push Notification Subscriptions & Tokens
+    // ============================================
+    match /notification_tokens/{tokenId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+    }
+  }
+}

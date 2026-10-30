@@ -5,6 +5,7 @@
 
 import { geminiProvider } from './geminiProvider';
 import { n8nProvider } from './n8nProvider';
+import { interviewEvaluator } from '../interview/interviewEvaluator';
 
 export const aiService = {
   /**
@@ -46,11 +47,20 @@ export const aiService = {
    * Evaluate interview response and generate dynamic follow-up question
    */
   evaluateAnswer: async (question, answer, type, company) => {
+    // 1. Try Gemini Provider if API key is present
     try {
       const res = await geminiProvider.evaluateAnswerAndFollowUp(question, answer, type, company);
-      if (res) return res;
+      if (res && typeof res.score === 'number') return res;
     } catch {}
-    return n8nProvider.evaluateAnswer(question, answer, type);
+
+    // 2. Try n8n workflow if configured
+    try {
+      const n8nRes = await n8nProvider.evaluateAnswer(question, answer, type);
+      if (n8nRes && typeof n8nRes.score === 'number') return n8nRes;
+    } catch {}
+
+    // 3. Fallback to intelligent local NLP evaluator with technical rubrics
+    return interviewEvaluator.evaluateAnswer(question, answer, type, company);
   },
 
   /**

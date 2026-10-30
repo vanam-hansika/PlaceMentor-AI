@@ -2,6 +2,7 @@
 // PlaceMentor AI — App Context (Global State)
 // ============================================
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { messagingService } from '../services/notifications/messagingService';
 
 const AppContext = createContext(null);
 
@@ -76,6 +77,35 @@ export function AppProvider({ children }) {
   // Apply theme on mount
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', state.theme);
+  }, []);
+
+  // Foreground FCM Push Notification Listener
+  useEffect(() => {
+    let unsubscribe = () => {};
+    messagingService.setupForegroundListener((payload) => {
+      const title = payload.notification?.title || payload.data?.title || 'PlaceMentor AI';
+      const body = payload.notification?.body || payload.data?.body || 'New notification received.';
+      const url = payload.data?.url || '/dashboard';
+
+      dispatch({
+        type: 'ADD_NOTIFICATION',
+        payload: {
+          id: Date.now(),
+          title: `${title}: ${body}`,
+          time: 'Just now',
+          read: false,
+          url
+        }
+      });
+
+      showToast(`🔔 ${title}: ${body}`, 'info', 4500);
+    }).then(unsub => {
+      if (typeof unsub === 'function') unsubscribe = unsub;
+    }).catch(err => {
+      console.warn('[Foreground Notification Listener Notice]', err);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Helpers

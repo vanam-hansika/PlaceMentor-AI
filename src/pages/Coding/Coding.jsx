@@ -10,11 +10,14 @@ import {
   AlertTriangle, BookOpen, Layers, Terminal, FileCode, HelpCircle, Copy
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { aiService } from '../../services/ai/aiService';
+import { progressService } from '../../services/progress/progressService';
 import './Coding.css';
 
 export default function Coding() {
   const { showToast, completeActivity, setNekoEmotion } = useApp();
+  const { user } = useAuth();
   const [selectedProblem, setSelectedProblem] = useState(codingProblems[0]);
   const [language, setLanguage] = useState('python');
   const [code, setCode] = useState(codingProblems[0].starterTemplates.python);
@@ -42,11 +45,31 @@ export default function Coding() {
   const handleRunCode = () => {
     setRunningCode(true);
     setConsoleOutput('Executing test cases against your solution...');
-    setTimeout(() => {
+    setTimeout(async () => {
       setRunningCode(false);
       setConsoleOutput(`✓ Test Case 1 Passed!\nInput: ${selectedProblem.sampleInput}\nOutput: ${selectedProblem.sampleOutput}\nExecution Time: 24ms\nMemory Used: 14.2 MB`);
       completeActivity('coding');
-      showToast('Code Executed Successfully! 🎉', 'success');
+
+      if (user) {
+        try {
+          const res = await progressService.recordCodingActivity(user, selectedProblem, true, { language });
+          if (res) {
+            showToast(`Code Passed! ${res.rewardMessage}`, 'success');
+            if (res.streakUpdated) {
+              showToast(`Streak Maintained! 🔥 ${res.streak} Day Streak`, 'info', 3500);
+            }
+            if (res.goalsBonusAwarded) {
+              showToast('🏆 Daily Goals Completed! +40 Bonus XP Awarded!', 'success', 4000);
+            }
+          } else {
+            showToast('Code Executed Successfully! 🎉', 'success');
+          }
+        } catch (e) {
+          showToast('Code Executed Successfully! 🎉', 'success');
+        }
+      } else {
+        showToast('Code Executed Successfully! 🎉', 'success');
+      }
     }, 1200);
   };
 

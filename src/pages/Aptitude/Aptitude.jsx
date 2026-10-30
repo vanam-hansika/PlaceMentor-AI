@@ -5,11 +5,14 @@ import React, { useState } from 'react';
 import { aptitudeCategories, sampleQuestions } from '../../data/aptitudeQuestions';
 import { BookOpen, CheckCircle, HelpCircle, Clock, ArrowRight, Award, RotateCcw, Brain } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { aiService } from '../../services/ai/aiService';
+import { progressService } from '../../services/progress/progressService';
 import './Aptitude.css';
 
 export default function Aptitude() {
   const { showToast, completeActivity } = useApp();
+  const { user } = useAuth();
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [quizActive, setQuizActive] = useState(false);
   const [currentQIndex, setCurrentQIndex] = useState(0);
@@ -34,9 +37,39 @@ export default function Aptitude() {
     setSelectedAnswers(prev => ({ ...prev, [qId]: optionIdx }));
   };
 
-  const handleFinishQuiz = () => {
+  const handleFinishQuiz = async () => {
     setShowResults(true);
+    let correct = 0;
+    questions.forEach(q => {
+      if (selectedAnswers[q.id] === q.correctAnswer) correct++;
+    });
+    const percentage = Math.round((correct / questions.length) * 100);
+
     completeActivity('aptitude');
+
+    if (user) {
+      try {
+        const topicName = selectedTopic?.name || 'Quantitative Aptitude';
+        const categoryName = selectedTopic?.category || 'Aptitude';
+        const res = await progressService.recordAptitudeActivity(
+          user,
+          categoryName,
+          topicName,
+          percentage,
+          questions.length,
+          correct
+        );
+        if (res) {
+          showToast(`Quiz Completed! +${res.xpGained} XP • ${percentage}% Score • Streak: ${res.streak} 🔥`, 'success');
+          if (res.completedGoal) {
+            showToast('🎯 Daily Aptitude Target Completed! +40 Bonus XP Awarded!', 'success');
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('[Aptitude Progress Sync Notice]', err);
+      }
+    }
     showToast('Quiz Completed! Aptitude score updated 🎉', 'success');
   };
 

@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Download, BookOpen, ExternalLink, Search, Filter, Sparkles, FileCheck } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { collection, getDocs } from 'firebase/firestore';
+import { safeStorage, openNoteDocument } from '../../utils/safeStorage';
 import './Resources.css';
 
 const DEFAULT_NOTES = [
@@ -53,6 +54,18 @@ const SUBJECT_CATEGORIES = [
   'HTML/CSS', 'SQL', 'Data Structures', 'AI/ML', 'Cloud'
 ];
 
+function formatDisplayDate(val) {
+  if (!val) return 'Recent';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object' && val.seconds) {
+    return new Date(val.seconds * 1000).toLocaleDateString();
+  }
+  if (val instanceof Date) {
+    return val.toLocaleDateString();
+  }
+  return 'Recent';
+}
+
 export default function Resources() {
   const [notes, setNotes] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('All');
@@ -74,7 +87,7 @@ export default function Resources() {
     }
 
     if (list.length === 0) {
-      const cached = JSON.parse(localStorage.getItem('pm_notes_data') || '[]');
+      const cached = safeStorage.getItem('pm_notes_data', []);
       list = cached.length > 0 ? cached : DEFAULT_NOTES;
     }
 
@@ -146,15 +159,16 @@ export default function Resources() {
               </div>
 
               <div className="flex justify-between items-center border-t pt-3 mt-2 text-xs">
-                <span className="text-muted">Added: {note.createdAt || 'Recent'}</span>
-                <a
-                  href={note.fileUrl || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <span className="text-muted">
+                  Added: {formatDisplayDate(note.createdAt)} {note.fileSizeFormatted ? `• 📄 ${note.fileSizeFormatted}` : ''}
+                </span>
+                <button
+                  type="button"
                   className="btn btn-outline btn-sm flex items-center gap-1"
+                  onClick={() => openNoteDocument(note)}
                 >
                   <FileText size={14} /> View Document <ExternalLink size={12} />
-                </a>
+                </button>
               </div>
             </div>
           ))

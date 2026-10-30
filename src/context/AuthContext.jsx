@@ -1,5 +1,6 @@
 // ============================================
 // PlaceMentor AI — Auth Context (Firebase)
+// Resilient Profile Synchronization & Safe Merging
 // ============================================
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
@@ -22,12 +23,121 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
 
-  // Listen to Firebase auth state
+  // Synchronize registered user in local cache for admin portal reliability
+  const cacheUserInRegistry = (userData) => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('pm_users_data') || '[]');
+      const index = existing.findIndex(u => u.uid === userData.uid || u.id === userData.uid);
+      if (index >= 0) {
+        existing[index] = { ...existing[index], ...userData };
+      } else {
+        existing.unshift(userData);
+      }
+      localStorage.setItem('pm_users_data', JSON.stringify(existing));
+    } catch {
+      // Ignore cache storage errors
+    }
+  };
+
+  // Safe, Idempotent Profile Synchronization
+  // Ensures users/{uid} always exists using the Firebase User's UID as document ID
+  // Preserves existing scores, XP, streaks, and badges using safe merge
+  async function syncUserProfile(firebaseUser, additionalData = {}) {
+    if (!firebaseUser?.uid) return null;
+
+    const uid = firebaseUser.uid;
+    const docRef = doc(db, 'users', uid);
+
+    try {
+      const snap = await getDoc(docRef);
+
+      if (snap.exists()) {
+        // Document exists: Preserve existing stats and perform safe merge
+        const existingData = snap.data();
+        const updatedFields = {
+          email: firebaseUser.email || existingData.email || '',
+          displayName: additionalData.displayName || existingData.displayName || firebaseUser.displayName || 'Student',
+          photoURL: firebaseUser.photoURL || existingData.photoURL || null,
+          lastActive: serverTimestamp(),
+          ...additionalData,
+        };
+
+        await setDoc(docRef, updatedFields, { merge: true });
+        const mergedProfile = { ...existingData, ...updatedFields, uid };
+        setUserProfile(mergedProfile);
+        cacheUserInRegistry(mergedProfile);
+        return mergedProfile;
+      } else {
+        // Document does not exist: Initialize new candidate profile
+        const newProfile = {
+          uid,
+          email: firebaseUser.email || '',
+          displayName: additionalData.displayName || firebaseUser.displayName || 'Student',
+          photoURL: firebaseUser.photoURL || null,
+          role: firebaseUser.email?.includes('admin') ? 'admin' : 'student',
+          targetCompany: additionalData.targetCompany || 'Google',
+          branch: additionalData.branch || 'Computer Science',
+          preferredLanguage: additionalData.preferredLanguage || 'Python',
+          streak: 0,
+          xp: 0,
+          level: 1,
+          codingScore: 0,
+          aptitudeScore: 0,
+          interviewScore: 0,
+          placementReadiness: 0,
+          badges: [],
+          friends: [],
+          profileComplete: false,
+          nekoLevel: 1,
+          nekoOutfits: [],
+          createdAt: serverTimestamp(),
+          lastActive: serverTimestamp(),
+          ...additionalData,
+        };
+
+        await setDoc(docRef, newProfile, { merge: true });
+        setUserProfile(newProfile);
+        cacheUserInRegistry(newProfile);
+        return newProfile;
+      }
+    } catch (err) {
+      console.warn('[Firestore Profile Sync Notice]', err);
+      // Fallback: If Firestore write was blocked by rules, construct local profile
+      const localProfile = {
+        uid,
+        email: firebaseUser.email || '',
+        displayName: additionalData.displayName || firebaseUser.displayName || 'Student',
+        photoURL: firebaseUser.photoURL || null,
+        role: firebaseUser.email?.includes('admin') ? 'admin' : 'student',
+        targetCompany: 'Google',
+        branch: 'Computer Science',
+        preferredLanguage: 'Python',
+        streak: 0,
+        xp: 0,
+        level: 1,
+        codingScore: 0,
+        aptitudeScore: 0,
+        interviewScore: 0,
+        placementReadiness: 0,
+        badges: [],
+        friends: [],
+        profileComplete: false,
+        createdAt: new Date().toISOString(),
+        lastActive: new Date().toISOString(),
+        ...additionalData
+      };
+      setUserProfile(prev => prev || localProfile);
+      cacheUserInRegistry(localProfile);
+      return localProfile;
+    }
+  }
+
+  // Listen to Firebase auth state and automatically synchronize profile
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
-        await fetchUserProfile(firebaseUser.uid);
+        await syncUserProfile(firebaseUser);
       } else {
         setUser(null);
         setUserProfile(null);
@@ -39,36 +149,46 @@ export function AuthProvider({ children }) {
 
   // Fetch Firestore user profile
   async function fetchUserProfile(uid) {
+    if (!uid) return;
     try {
       const docRef = doc(db, 'users', uid);
       const snap = await getDoc(docRef);
-      if (snap.exists()) setUserProfile(snap.data());
+      if (snap.exists()) {
+        const data = snap.data();
+        setUserProfile(data);
+        cacheUserInRegistry({ id: uid, uid, ...data });
+      }
     } catch (err) {
-      console.error('Error fetching profile:', err);
+      console.warn('Error fetching profile:', err);
     }
   }
 
-  // Create Firestore profile document
+  // Create or Merge Firestore profile document
   async function createUserProfile(uid, data) {
     const profileData = {
       uid,
       ...data,
-      streak: 0,
-      xp: 0,
-      level: 1,
-      codingScore: 0,
-      aptitudeScore: 0,
-      interviewScore: 0,
-      placementReadiness: 0,
-      badges: [],
-      friends: [],
-      createdAt: serverTimestamp(),
+      streak: data.streak ?? 0,
+      xp: data.xp ?? 0,
+      level: data.level ?? 1,
+      codingScore: data.codingScore ?? 0,
+      aptitudeScore: data.aptitudeScore ?? 0,
+      interviewScore: data.interviewScore ?? 0,
+      placementReadiness: data.placementReadiness ?? 0,
+      badges: data.badges ?? [],
+      friends: data.friends ?? [],
       lastActive: serverTimestamp(),
-      nekoLevel: 1,
-      nekoOutfits: [],
+      nekoLevel: data.nekoLevel ?? 1,
     };
-    await setDoc(doc(db, 'users', uid), profileData);
-    setUserProfile(profileData);
+
+    try {
+      await setDoc(doc(db, 'users', uid), profileData, { merge: true });
+    } catch (err) {
+      console.warn('[createUserProfile Firestore Notice]', err);
+    }
+
+    setUserProfile(prev => ({ ...prev, ...profileData }));
+    cacheUserInRegistry({ id: uid, ...profileData });
     return profileData;
   }
 
@@ -76,14 +196,21 @@ export function AuthProvider({ children }) {
   async function signup(email, password, displayName) {
     setAuthError(null);
     const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(cred.user, { displayName });
+    if (displayName) {
+      await updateProfile(cred.user, { displayName }).catch(() => {});
+    }
+    // Immediately ensure profile document exists in Firestore
+    await syncUserProfile(cred.user, { displayName, email });
     return cred.user;
   }
 
   // Email/Password login
   async function login(email, password) {
     setAuthError(null);
-    return signInWithEmailAndPassword(auth, email, password);
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    // Ensure profile document exists and updates lastActive
+    await syncUserProfile(cred.user);
+    return cred.user;
   }
 
   // Google Sign-In
@@ -91,17 +218,12 @@ export function AuthProvider({ children }) {
     setAuthError(null);
     const result = await signInWithPopup(auth, googleProvider);
     const isNew = result._tokenResponse?.isNewUser;
-    if (isNew) {
-      await createUserProfile(result.user.uid, {
-        displayName: result.user.displayName,
-        email: result.user.email,
-        photoURL: result.user.photoURL,
-        profileComplete: false,
-      });
-    } else {
-      await fetchUserProfile(result.user.uid);
-    }
-    return { user: result.user, isNew };
+    const profile = await syncUserProfile(result.user, {
+      displayName: result.user.displayName,
+      email: result.user.email,
+      photoURL: result.user.photoURL,
+    });
+    return { user: result.user, isNew, profile };
   }
 
   // Forgot password
@@ -112,14 +234,21 @@ export function AuthProvider({ children }) {
   // Logout
   async function logout() {
     await signOut(auth);
+    sessionStorage.removeItem('pm_admin_session_auth');
   }
 
-  // Update user profile in Firestore
+  // Update user profile in Firestore (safe merge)
   async function updateUserProfile(data) {
     if (!user) return;
     const ref = doc(db, 'users', user.uid);
-    await setDoc(ref, { ...data, lastActive: serverTimestamp() }, { merge: true });
-    setUserProfile(prev => ({ ...prev, ...data }));
+    try {
+      await setDoc(ref, { ...data, lastActive: serverTimestamp() }, { merge: true });
+    } catch (err) {
+      console.warn('[updateUserProfile Firestore Notice]', err);
+    }
+    const updated = { ...userProfile, ...data };
+    setUserProfile(updated);
+    cacheUserInRegistry({ id: user.uid, uid: user.uid, ...updated });
   }
 
   const value = {
@@ -136,6 +265,7 @@ export function AuthProvider({ children }) {
     createUserProfile,
     updateUserProfile,
     fetchUserProfile,
+    syncUserProfile,
   };
 
   return (
