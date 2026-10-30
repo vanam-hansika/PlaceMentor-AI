@@ -57,11 +57,31 @@ export default function Signup() {
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
+    setErrors(p => ({ ...p, general: '' }));
     try {
-      const { isNew } = await loginWithGoogle();
-      navigate(isNew ? '/profile-setup' : '/dashboard');
-    } catch {
-      setErrors({ general: 'Google sign-in failed.' });
+      const result = await loginWithGoogle();
+      if (result?.isRedirecting) return;
+      navigate(result?.isNew ? '/profile-setup' : '/dashboard');
+    } catch (err) {
+      console.error('[Google Sign-Up Error]', err);
+      let errorMsg = 'Google sign-in failed. Please try again.';
+
+      if (err.code === 'auth/unauthorized-domain') {
+        const host = window.location.hostname;
+        errorMsg = `Domain "${host}" is not authorized in Firebase. Please add "${host}" to Firebase Console → Authentication → Settings → Authorized domains.`;
+      } else if (err.code === 'auth/popup-blocked') {
+        errorMsg = 'Sign-in popup was blocked by your browser. Please allow popups or retry.';
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        errorMsg = 'Google sign-in window was closed before completion.';
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        errorMsg = 'A sign-in window is already open.';
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMsg = 'Network error. Please check your internet connection.';
+      } else if (err.code === 'auth/operation-not-allowed') {
+        errorMsg = 'Google provider is not enabled in Firebase Console → Authentication → Sign-in method.';
+      }
+
+      setErrors(p => ({ ...p, general: errorMsg }));
     } finally {
       setGoogleLoading(false);
     }

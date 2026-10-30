@@ -7,6 +7,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   sendPasswordResetEmail,
   onAuthStateChanged,
@@ -147,6 +149,25 @@ export function AuthProvider({ children }) {
     return unsub;
   }, []);
 
+  // Handle redirect sign-in outcome (for mobile PWA / standalone environments)
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          const isNew = result._tokenResponse?.isNewUser;
+          await syncUserProfile(result.user, {
+            displayName: result.user.displayName,
+            email: result.user.email,
+            photoURL: result.user.photoURL,
+          });
+          setUser(result.user);
+        }
+      })
+      .catch((err) => {
+        console.warn('[Redirect Auth Handler Notice]', err.code, err.message);
+      });
+  }, []);
+
   // Fetch Firestore user profile
   async function fetchUserProfile(uid) {
     if (!uid) return;
@@ -213,17 +234,35 @@ export function AuthProvider({ children }) {
     return cred.user;
   }
 
-  // Google Sign-In
-  async function loginWithGoogle() {
+  // Google Sign-In with popup + mobile redirect fallback
+  async function loginWithGoogle({ forceRedirect = false } = {}) {
     setAuthError(null);
-    const result = await signInWithPopup(auth, googleProvider);
-    const isNew = result._tokenResponse?.isNewUser;
-    const profile = await syncUserProfile(result.user, {
-      displayName: result.user.displayName,
-      email: result.user.email,
-      photoURL: result.user.photoURL,
-    });
-    return { user: result.user, isNew, profile };
+    const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+
+    if (forceRedirect) {
+      await signInWithRedirect(auth, googleProvider);
+      return { isRedirecting: true };
+    }
+
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const isNew = result._tokenResponse?.isNewUser;
+      const profile = await syncUserProfile(result.user, {
+        displayName: result.user.displayName,
+        email: result.user.email,
+        photoURL: result.user.photoURL,
+      });
+      return { user: result.user, isNew, profile };
+    } catch (popupErr) {
+      console.warn('[Google Auth Notice]', popupErr.code, popupErr.message);
+      // If running on mobile/PWA and popup was blocked or dismissed, fall back to redirect
+      if (isMobile && (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user')) {
+        console.info('[Google Auth] Falling back to signInWithRedirect for mobile...');
+        await signInWithRedirect(auth, googleProvider);
+        return { isRedirecting: true };
+      }
+      throw popupErr;
+    }
   }
 
   // Forgot password
