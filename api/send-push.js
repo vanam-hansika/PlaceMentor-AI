@@ -15,7 +15,19 @@ function getFirebaseAdmin() {
   // 1. Full service account JSON in single environment variable
   if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     try {
-      const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+      let raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.trim();
+      if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith('"') && raw.endsWith('"'))) {
+        raw = raw.slice(1, -1).trim();
+      }
+      if (!raw.startsWith('{') && raw.length > 50) {
+        try {
+          const decoded = Buffer.from(raw, 'base64').toString('utf8');
+          if (decoded.startsWith('{')) {
+            raw = decoded;
+          }
+        } catch {}
+      }
+
       const serviceAccount = typeof raw === 'string' ? JSON.parse(raw) : raw;
       if (serviceAccount.private_key) {
         serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
@@ -26,6 +38,7 @@ function getFirebaseAdmin() {
       return admin;
     } catch (err) {
       console.error('[FCM Admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:', err.message);
+      throw new Error(`FIREBASE_SERVICE_ACCOUNT_KEY failed: ${err.message}`);
     }
   }
 
@@ -86,7 +99,7 @@ export default async function handler(req, res) {
     console.error('[FCM Admin] Initialization error:', err.message);
     return res.status(500).json({
       success: false,
-      error: 'Missing FIREBASE_SERVICE_ACCOUNT_KEY in Vercel Environment Variables. Please add your Firebase Service Account JSON in Vercel Project Settings > Environment Variables.'
+      error: `Server initialization error: ${err.message}`
     });
   }
 
