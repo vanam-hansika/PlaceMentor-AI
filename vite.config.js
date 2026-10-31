@@ -48,7 +48,8 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
+        importScripts: ['/firebase-messaging-sw.js']
       }
     })
   ],

@@ -193,6 +193,15 @@ export default async function handler(req, res) {
             tokensToTarget.push({ token: t, docId: tDoc.id, userId: userDoc.id });
           }
         });
+
+        // Also harvest tokens recorded on user document
+        if (Array.isArray(userData.fcmTokens)) {
+          userData.fcmTokens.forEach((t) => {
+            if (t && typeof t === 'string' && !tokensToTarget.some((x) => x.token === t)) {
+              tokensToTarget.push({ token: t, docId: null, userId: userDoc.id });
+            }
+          });
+        }
       }
     } else {
       if (!targetUserId) {
@@ -263,6 +272,11 @@ export default async function handler(req, res) {
     let totalFailure = 0;
     const staleTokens = [];
 
+    const origin = 'https://place-mentor-ai-chi.vercel.app';
+    const fullUrl = url.startsWith('http') ? url : `${origin}${url.startsWith('/') ? url : '/' + url}`;
+    const fullIconUrl = `${origin}/pwa-192x192.png`;
+    const fullBadgeUrl = `${origin}/pwa-192x192.png`;
+
     const BATCH_SIZE = 500;
     for (let i = 0; i < tokenStrings.length; i += BATCH_SIZE) {
       const batchTokens = tokenStrings.slice(i, i + BATCH_SIZE);
@@ -275,17 +289,35 @@ export default async function handler(req, res) {
           body: messageBody
         },
         data: {
-          url,
-          category,
+          title: String(title),
+          body: String(messageBody),
+          url: String(fullUrl),
+          relativeUrl: String(url),
+          category: String(category),
+          icon: String(fullIconUrl),
+          badge: String(fullBadgeUrl),
           timestamp: String(Date.now())
         },
         webpush: {
+          headers: {
+            Urgency: 'high'
+          },
           notification: {
-            icon: '/pwa-192x192.png',
-            badge: '/favicon.svg'
+            title,
+            body: messageBody,
+            icon: fullIconUrl,
+            badge: fullBadgeUrl,
+            tag: `placementor-${category}`,
+            renotify: true,
+            requireInteraction: true,
+            data: {
+              url: fullUrl,
+              category,
+              timestamp: Date.now()
+            }
           },
           fcmOptions: {
-            link: url
+            link: fullUrl
           }
         }
       });
@@ -333,11 +365,32 @@ export default async function handler(req, res) {
       }
     }
 
+    console.log(`[FCM Send-Push] Dispatched: broadcast=${isBroadcast}, totalTokens=${tokensToTarget.length}, sentCount=${totalSuccess}, failureCount=${totalFailure}`);
+
+    if (tokensToTarget.length > 0 && totalSuccess === 0 && totalFailure > 0) {
+      return res.status(502).json({
+        success: false,
+        error: `FCM rejected all ${totalFailure} target token(s). Tokens may be invalid, expired, or registered with an outdated VAPID key.`,
+        sentCount: 0,
+        failureCount: totalFailure,
+        diagnostics: {
+          staleTokensPruned: staleTokens.length
+        }
+      });
+    }
+
     return res.status(200).json({
       success: true,
-      message: 'Push notification dispatched.',
+      message: totalSuccess > 0 ? 'Push notification dispatched.' : 'No active notifications could be sent.',
       sentCount: totalSuccess,
-      failureCount: totalFailure
+      failureCount: totalFailure,
+      diagnostics: {
+        totalTokensTargeted: tokensToTarget.length,
+        uniqueUsersTargeted: [...new Set(tokensToTarget.map(t => t.userId))].length,
+        staleTokensPruned: staleTokens.length,
+        category,
+        timestamp: new Date().toISOString()
+      }
     });
   } catch (err) {
     console.error('[FCM Handler Error]', err);

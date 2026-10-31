@@ -75,18 +75,25 @@ export const messagingService = {
     }
 
     try {
-      // 1. Register or get existing /firebase-messaging-sw.js registration
-      let swRegistration;
+      // 1. Register or get existing service worker registration
+      let swRegistration = null;
       try {
-        swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-          scope: '/'
-        });
+        swRegistration = await navigator.serviceWorker.getRegistration('/');
+        if (!swRegistration) {
+          swRegistration = await navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => null);
+        }
+        if (!swRegistration) {
+          swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+        }
         await navigator.serviceWorker.ready;
+        if (swRegistration && typeof swRegistration.update === 'function') {
+          swRegistration.update().catch(() => {});
+        }
       } catch (swErr) {
         console.error('[FCM SW Error]', swErr);
         return {
           success: false,
-          error: `Service Worker registration failed: ${swErr.message}. Ensure /firebase-messaging-sw.js exists.`
+          error: `Service Worker registration failed: ${swErr.message}. Ensure service worker is accessible.`
         };
       }
 
@@ -299,7 +306,7 @@ export const messagingService = {
     }
 
     try {
-      const swReg = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js') ||
+      const swReg = await navigator.serviceWorker.getRegistration('/') ||
                     await navigator.serviceWorker.ready;
 
       if (!swReg) {
@@ -309,7 +316,7 @@ export const messagingService = {
       await swReg.showNotification('🎉 PlaceMentor AI Notification Test', {
         body: 'Push notifications are working! You will receive daily motivation, study reminders, and job alerts.',
         icon: '/pwa-192x192.png',
-        badge: '/favicon.svg',
+        badge: '/pwa-192x192.png',
         tag: 'test-notification',
         data: {
           url: '/settings',
