@@ -96,7 +96,7 @@ export default async function handler(req, res) {
     console.error('[notify-job] Firebase Admin Init Error:', err.message);
     return res.status(500).json({
       success: false,
-      error: 'Server is currently misconfigured. Contact administrator.'
+      error: 'Missing FIREBASE_SERVICE_ACCOUNT_KEY in Vercel Environment Variables. Please add your Firebase Service Account JSON in Vercel Project Settings > Environment Variables.'
     });
   }
 

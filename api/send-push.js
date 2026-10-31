@@ -83,7 +83,7 @@ export default async function handler(req, res) {
     console.error('[FCM Admin] Initialization error:', err.message);
     return res.status(500).json({
       success: false,
-      error: 'Push notification server is currently misconfigured. Contact administrator.'
+      error: 'Missing FIREBASE_SERVICE_ACCOUNT_KEY in Vercel Environment Variables. Please add your Firebase Service Account JSON in Vercel Project Settings > Environment Variables.'
     });
   }
 
