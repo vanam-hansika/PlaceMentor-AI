@@ -3,67 +3,6 @@
 // Vercel Serverless Function (Node.js ESM)
 // ============================================
 
-import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { getMessaging } from 'firebase-admin/messaging';
-import { getAuth } from 'firebase-admin/auth';
-
-function getFirebaseAdminApp() {
-  if (getApps().length > 0) {
-    return getApp();
-  }
-
-  // 1. Full service account JSON in single environment variable
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    try {
-      let raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.trim();
-      if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith('"') && raw.endsWith('"'))) {
-        raw = raw.slice(1, -1).trim();
-      }
-      if (!raw.startsWith('{') && raw.length > 50) {
-        try {
-          const decoded = Buffer.from(raw, 'base64').toString('utf8');
-          if (decoded.startsWith('{')) raw = decoded;
-        } catch {}
-      }
-
-      const serviceAccount = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      if (serviceAccount.private_key) {
-        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-      }
-
-      return initializeApp({
-        credential: cert(serviceAccount)
-      });
-    } catch (err) {
-      console.error('[FCM Admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:', err.message);
-      throw new Error(`FIREBASE_SERVICE_ACCOUNT_KEY invalid: ${err.message}`);
-    }
-  }
-
-  // 2. Discrete environment variables
-  if (
-    process.env.FIREBASE_PROJECT_ID &&
-    process.env.FIREBASE_CLIENT_EMAIL &&
-    process.env.FIREBASE_PRIVATE_KEY
-  ) {
-    try {
-      const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
-      return initializeApp({
-        credential: cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey
-        })
-      });
-    } catch (err) {
-      console.error('[FCM Admin] Failed to initialize with discrete credentials:', err.message);
-    }
-  }
-
-  throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY in Vercel Environment Variables. Please redeploy after adding the key.');
-}
-
 const ALLOWED_CATEGORIES = ['dailyMotivation', 'studyReminders', 'jobAlerts', 'testNotification'];
 
 export default async function handler(req, res) {
@@ -80,95 +19,137 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed. Use POST.' });
   }
 
-  let app;
   try {
-    app = getFirebaseAdminApp();
-  } catch (err) {
-    console.error('[FCM Admin] Init error:', err.message);
-    return res.status(500).json({
-      success: false,
-      error: `Server initialization error: ${err.message}`
-    });
-  }
+    // Dynamic import to safely capture any module loading errors
+    const { initializeApp, getApps, getApp, cert } = await import('firebase-admin/app');
+    const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
+    const { getMessaging } = await import('firebase-admin/messaging');
+    const { getAuth } = await import('firebase-admin/auth');
 
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const messaging = getMessaging(app);
+    // Initialize or get app
+    let app;
+    if (getApps().length > 0) {
+      app = getApp();
+    } else {
+      if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+        return res.status(500).json({
+          success: false,
+          error: 'Missing FIREBASE_SERVICE_ACCOUNT_KEY in Vercel Environment Variables. Please redeploy after adding the key.'
+        });
+      }
 
-  const authHeader = req.headers['authorization'];
-  const apiKeyHeader = req.headers['x-api-key'];
-  const expectedSecret = process.env.N8N_PUSH_SECRET;
+      let raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.trim();
+      if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith('"') && raw.endsWith('"'))) {
+        raw = raw.slice(1, -1).trim();
+      }
+      if (!raw.startsWith('{') && raw.length > 50) {
+        try {
+          const decoded = Buffer.from(raw, 'base64').toString('utf8');
+          if (decoded.startsWith('{')) raw = decoded;
+        } catch {}
+      }
 
-  let authContext = null;
+      let serviceAccount;
+      try {
+        serviceAccount = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch (parseErr) {
+        return res.status(500).json({
+          success: false,
+          error: `Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY JSON: ${parseErr.message}`
+        });
+      }
 
-  // 1. Validate n8n shared secret (via x-api-key or Bearer secret)
-  if (expectedSecret && expectedSecret.trim().length > 0) {
-    if (apiKeyHeader && apiKeyHeader === expectedSecret) {
-      authContext = { type: 'n8n', isServiceAdmin: true };
-    } else if (authHeader && authHeader === `Bearer ${expectedSecret}`) {
+      if (serviceAccount.private_key) {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      }
+
+      app = initializeApp({
+        credential: cert(serviceAccount)
+      });
+    }
+
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const messaging = getMessaging(app);
+
+    const authHeader = req.headers['authorization'];
+    const apiKeyHeader = req.headers['x-api-key'];
+    const expectedSecret = process.env.N8N_PUSH_SECRET;
+
+    let authContext = null;
+
+    // 1. Validate n8n shared secret (via x-api-key or Bearer secret)
+    if (expectedSecret && expectedSecret.trim().length > 0) {
+      if (apiKeyHeader && apiKeyHeader === expectedSecret) {
+        authContext = { type: 'n8n', isServiceAdmin: true };
+      } else if (authHeader && authHeader === `Bearer ${expectedSecret}`) {
+        authContext = { type: 'n8n', isServiceAdmin: true };
+      }
+    }
+
+    // 2. Validate Firebase User ID Token (for frontend test button)
+    if (!authContext && authHeader && authHeader.startsWith('Bearer ')) {
+      const idToken = authHeader.split('Bearer ')[1]?.trim();
+      if (idToken) {
+        try {
+          const decoded = await auth.verifyIdToken(idToken);
+          authContext = {
+            type: 'user',
+            uid: decoded.uid,
+            email: decoded.email,
+            isServiceAdmin: false
+          };
+        } catch (tokenErr) {
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid or expired Firebase authentication token.'
+          });
+        }
+      }
+    }
+
+    // Fallback if no secret is set yet in development
+    if (!authContext && !expectedSecret) {
       authContext = { type: 'n8n', isServiceAdmin: true };
     }
-  }
 
-  // 2. Validate Firebase User ID Token (for frontend test button)
-  if (!authContext && authHeader && authHeader.startsWith('Bearer ')) {
-    const idToken = authHeader.split('Bearer ')[1]?.trim();
-    if (idToken) {
-      try {
-        const decoded = await auth.verifyIdToken(idToken);
-        authContext = {
-          type: 'user',
-          uid: decoded.uid,
-          email: decoded.email,
-          isServiceAdmin: false
-        };
-      } catch (tokenErr) {
-        return res.status(401).json({
+    if (!authContext) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Missing or invalid authentication credentials.'
+      });
+    }
+
+    // Parse and validate payload
+    const body = req.body || {};
+    const title = typeof body.title === 'string' ? body.title.trim().slice(0, 120) : '';
+    const messageBody = typeof body.body === 'string' ? body.body.trim().slice(0, 300) : '';
+    const url = typeof body.url === 'string' && body.url.trim().length > 0 ? body.url.trim() : '/dashboard';
+    const category = body.category && ALLOWED_CATEGORIES.includes(body.category)
+      ? body.category
+      : 'dailyMotivation';
+
+    if (!title || !messageBody) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required payload fields: title and body are required.'
+      });
+    }
+
+    // Target selection
+    let targetUserId = body.userId;
+    const isBroadcast = Boolean(body.broadcast);
+
+    if (authContext.type === 'user') {
+      targetUserId = authContext.uid;
+      if (isBroadcast) {
+        return res.status(403).json({
           success: false,
-          error: 'Invalid or expired Firebase authentication token.'
+          error: 'Forbidden: Broadcast notifications can only be triggered by automated services.'
         });
       }
     }
-  }
 
-  if (!authContext) {
-    return res.status(401).json({
-      success: false,
-      error: 'Unauthorized: Missing or invalid authentication credentials.'
-    });
-  }
-
-  // Parse and validate payload
-  const body = req.body || {};
-  const title = typeof body.title === 'string' ? body.title.trim().slice(0, 120) : '';
-  const messageBody = typeof body.body === 'string' ? body.body.trim().slice(0, 300) : '';
-  const url = typeof body.url === 'string' && body.url.trim().length > 0 ? body.url.trim() : '/dashboard';
-  const category = body.category && ALLOWED_CATEGORIES.includes(body.category)
-    ? body.category
-    : 'dailyMotivation';
-
-  if (!title || !messageBody) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing required payload fields: title and body are required.'
-    });
-  }
-
-  // Target selection
-  let targetUserId = body.userId;
-  const isBroadcast = Boolean(body.broadcast);
-
-  if (authContext.type === 'user') {
-    targetUserId = authContext.uid;
-    if (isBroadcast) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden: Broadcast notifications can only be triggered by automated services.'
-      });
-    }
-  }
-
-  try {
     const tokensToTarget = []; // array of { token, docId, userId }
 
     if (isBroadcast && authContext.isServiceAdmin) {
@@ -334,10 +315,10 @@ export default async function handler(req, res) {
       failureCount: totalFailure
     });
   } catch (err) {
-    console.error('[FCM Dispatch Error]', err.message);
+    console.error('[FCM Handler Error]', err);
     return res.status(500).json({
       success: false,
-      error: `FCM dispatch error: ${err.message}`
+      error: `Server execution error: ${err.message}`
     });
   }
 }

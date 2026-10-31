@@ -1,68 +1,7 @@
 // ============================================
 // PlaceMentor AI — Secure Server-Side Job Alert Dispatcher
 // Vercel Serverless Function (Node.js ESM)
-// Dispatches new verified jobs/internships to the n8n Production Webhook
 // ============================================
-
-import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
-
-function getFirebaseAdminApp() {
-  if (getApps().length > 0) {
-    return getApp();
-  }
-
-  // 1. Full service account JSON in single environment variable
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    try {
-      let raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.trim();
-      if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith('"') && raw.endsWith('"'))) {
-        raw = raw.slice(1, -1).trim();
-      }
-      if (!raw.startsWith('{') && raw.length > 50) {
-        try {
-          const decoded = Buffer.from(raw, 'base64').toString('utf8');
-          if (decoded.startsWith('{')) raw = decoded;
-        } catch {}
-      }
-
-      const serviceAccount = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      if (serviceAccount.private_key) {
-        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-      }
-
-      return initializeApp({
-        credential: cert(serviceAccount)
-      });
-    } catch (err) {
-      console.error('[Firebase Admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:', err.message);
-      throw new Error(`FIREBASE_SERVICE_ACCOUNT_KEY invalid: ${err.message}`);
-    }
-  }
-
-  // 2. Discrete environment variables
-  if (
-    process.env.FIREBASE_PROJECT_ID &&
-    process.env.FIREBASE_CLIENT_EMAIL &&
-    process.env.FIREBASE_PRIVATE_KEY
-  ) {
-    try {
-      const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
-      return initializeApp({
-        credential: cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey
-        })
-      });
-    } catch (err) {
-      console.error('[Firebase Admin] Failed to initialize with discrete credentials:', err.message);
-    }
-  }
-
-  throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY in Vercel Environment Variables. Please redeploy after adding the key.');
-}
 
 function cleanText(text) {
   if (!text || typeof text !== 'string') return '';
@@ -92,80 +31,113 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed. Use POST.' });
   }
 
-  let app;
   try {
-    app = getFirebaseAdminApp();
-  } catch (err) {
-    console.error('[notify-job] Firebase Admin Init Error:', err.message);
-    return res.status(500).json({
-      success: false,
-      error: `Server initialization error: ${err.message}`
-    });
-  }
+    const { initializeApp, getApps, getApp, cert } = await import('firebase-admin/app');
+    const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
+    const { getAuth } = await import('firebase-admin/auth');
 
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+    let app;
+    if (getApps().length > 0) {
+      app = getApp();
+    } else {
+      if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+        return res.status(500).json({
+          success: false,
+          error: 'Missing FIREBASE_SERVICE_ACCOUNT_KEY in Vercel Environment Variables.'
+        });
+      }
 
-  const authHeader = req.headers['authorization'];
-  const apiKeyHeader = req.headers['x-api-key'];
-  const expectedSecret = process.env.N8N_PUSH_SECRET;
+      let raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.trim();
+      if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith('"') && raw.endsWith('"'))) {
+        raw = raw.slice(1, -1).trim();
+      }
+      if (!raw.startsWith('{') && raw.length > 50) {
+        try {
+          const decoded = Buffer.from(raw, 'base64').toString('utf8');
+          if (decoded.startsWith('{')) raw = decoded;
+        } catch {}
+      }
 
-  let isAuthenticated = false;
-
-  if (expectedSecret && (apiKeyHeader === expectedSecret || authHeader === `Bearer ${expectedSecret}`)) {
-    isAuthenticated = true;
-  }
-
-  if (!isAuthenticated && authHeader && authHeader.startsWith('Bearer ')) {
-    const idToken = authHeader.split('Bearer ')[1]?.trim();
-    if (idToken) {
+      let serviceAccount;
       try {
-        await auth.verifyIdToken(idToken);
-        isAuthenticated = true;
-      } catch (tokenErr) {}
+        serviceAccount = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch (parseErr) {
+        return res.status(500).json({
+          success: false,
+          error: `Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY JSON: ${parseErr.message}`
+        });
+      }
+
+      if (serviceAccount.private_key) {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      }
+
+      app = initializeApp({
+        credential: cert(serviceAccount)
+      });
     }
-  }
 
-  if (!isAuthenticated && !expectedSecret) {
-    isAuthenticated = true;
-  }
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-  if (!isAuthenticated) {
-    return res.status(401).json({
-      success: false,
-      error: 'Unauthorized: Missing or invalid authentication credentials.'
-    });
-  }
+    const authHeader = req.headers['authorization'];
+    const apiKeyHeader = req.headers['x-api-key'];
+    const expectedSecret = process.env.N8N_PUSH_SECRET;
 
-  const body = req.body || {};
-  const job = body.job || body;
+    let isAuthenticated = false;
 
-  const title = cleanText(job.title || job.role || '');
-  const company = cleanText(job.company || '');
-  const description = cleanText(job.description || `New opportunity at ${company} matching your target profile.`);
-  const location = cleanText(job.location || 'India / Remote');
-  const jobType = (job.jobType || job.type || (job.stipend ? 'internship' : 'job')).toLowerCase().includes('intern')
-    ? 'internship'
-    : 'job';
-  const applicationUrl = (job.applicationUrl || job.applyUrl || '').trim();
-  const createdAt = job.createdAt
-    ? (typeof job.createdAt === 'string' ? job.createdAt : new Date().toISOString())
-    : new Date().toISOString();
-  const jobId = job.id || `job-${Date.now()}`;
+    if (expectedSecret && (apiKeyHeader === expectedSecret || authHeader === `Bearer ${expectedSecret}`)) {
+      isAuthenticated = true;
+    }
 
-  if (!title || !company || !applicationUrl) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing required opportunity details: title, company, and applicationUrl are required.'
-    });
-  }
+    if (!isAuthenticated && authHeader && authHeader.startsWith('Bearer ')) {
+      const idToken = authHeader.split('Bearer ')[1]?.trim();
+      if (idToken) {
+        try {
+          await auth.verifyIdToken(idToken);
+          isAuthenticated = true;
+        } catch (tokenErr) {}
+      }
+    }
 
-  const dedupKey = Buffer.from(applicationUrl.toLowerCase().trim()).toString('base64url').slice(0, 100);
+    if (!isAuthenticated && !expectedSecret) {
+      isAuthenticated = true;
+    }
 
-  try {
+    if (!isAuthenticated) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Missing or invalid authentication credentials.'
+      });
+    }
+
+    const body = req.body || {};
+    const job = body.job || body;
+
+    const title = cleanText(job.title || job.role || '');
+    const company = cleanText(job.company || '');
+    const description = cleanText(job.description || `New opportunity at ${company} matching your target profile.`);
+    const location = cleanText(job.location || 'India / Remote');
+    const jobType = (job.jobType || job.type || (job.stipend ? 'internship' : 'job')).toLowerCase().includes('intern')
+      ? 'internship'
+      : 'job';
+    const applicationUrl = (job.applicationUrl || job.applyUrl || '').trim();
+    const createdAt = job.createdAt
+      ? (typeof job.createdAt === 'string' ? job.createdAt : new Date().toISOString())
+      : new Date().toISOString();
+    const jobId = job.id || `job-${Date.now()}`;
+
+    if (!title || !company || !applicationUrl) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required opportunity details: title, company, and applicationUrl are required.'
+      });
+    }
+
+    const dedupKey = Buffer.from(applicationUrl.toLowerCase().trim()).toString('base64url').slice(0, 100);
+
     const dedupDoc = await db.collection('job_notifications_dispatched').doc(dedupKey).get();
     if (dedupDoc.exists) {
-      console.log(`[notify-job] Duplicate alert skipped: ${company} - ${title}`);
       return res.status(200).json({
         success: true,
         skipped: true,
@@ -178,7 +150,6 @@ export default async function handler(req, res) {
       const coll = jobType === 'internship' ? 'internships' : 'jobs';
       const existingDoc = await db.collection(coll).doc(job.id).get();
       if (existingDoc.exists && existingDoc.data()?.notified === true) {
-        console.log(`[notify-job] Opportunity ${job.id} is already marked notified.`);
         return res.status(200).json({
           success: true,
           skipped: true,
@@ -216,8 +187,6 @@ export default async function handler(req, res) {
       webhookHeaders['Authorization'] = `Bearer ${webhookSecret.trim()}`;
     }
 
-    console.log(`[notify-job] Dispatching job alert to n8n webhook: ${company} - ${title}`);
-
     let n8nResponse;
     let n8nData = null;
 
@@ -236,7 +205,6 @@ export default async function handler(req, res) {
         n8nData = { raw: responseText };
       }
     } catch (fetchErr) {
-      console.error('[notify-job] n8n Webhook connection error:', fetchErr.message);
       return res.status(502).json({
         success: false,
         error: `Failed to contact n8n webhook: ${fetchErr.message}`,
@@ -245,7 +213,6 @@ export default async function handler(req, res) {
     }
 
     if (!n8nResponse.ok) {
-      console.warn(`[notify-job] n8n Webhook returned HTTP ${n8nResponse.status}:`, n8nData);
       return res.status(n8nResponse.status || 500).json({
         success: false,
         error: `n8n Webhook returned error code ${n8nResponse.status}`,
@@ -260,7 +227,7 @@ export default async function handler(req, res) {
       applicationUrl,
       jobType,
       dispatchedAt: FieldValue.serverTimestamp()
-    }).catch(e => console.warn('[notify-job] Could not save dedup record:', e.message));
+    }).catch(() => {});
 
     if (job.id) {
       const coll = jobType === 'internship' ? 'internships' : 'jobs';
@@ -277,10 +244,10 @@ export default async function handler(req, res) {
       n8nResponse: n8nData
     });
   } catch (err) {
-    console.error('[notify-job] Internal error:', err.message);
+    console.error('[notify-job Error]', err);
     return res.status(500).json({
       success: false,
-      error: `Internal server error: ${err.message}`
+      error: `Server execution error: ${err.message}`
     });
   }
 }
