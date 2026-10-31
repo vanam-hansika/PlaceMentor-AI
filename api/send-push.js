@@ -1,15 +1,16 @@
 // ============================================
 // PlaceMentor AI — Secure Push Notification API
-// Vercel Serverless Function (Node.js)
-// Accepts authenticated dispatches from n8n and client test requests
+// Vercel Serverless Function (Node.js ESM)
 // ============================================
 
-import admin from 'firebase-admin';
+import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getMessaging } from 'firebase-admin/messaging';
+import { getAuth } from 'firebase-admin/auth';
 
-// Initialize Firebase Admin singleton
-function getFirebaseAdmin() {
-  if (admin.apps.length > 0) {
-    return admin;
+function getFirebaseAdminApp() {
+  if (getApps().length > 0) {
+    return getApp();
   }
 
   // 1. Full service account JSON in single environment variable
@@ -22,9 +23,7 @@ function getFirebaseAdmin() {
       if (!raw.startsWith('{') && raw.length > 50) {
         try {
           const decoded = Buffer.from(raw, 'base64').toString('utf8');
-          if (decoded.startsWith('{')) {
-            raw = decoded;
-          }
+          if (decoded.startsWith('{')) raw = decoded;
         } catch {}
       }
 
@@ -32,13 +31,13 @@ function getFirebaseAdmin() {
       if (serviceAccount.private_key) {
         serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
       }
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+
+      return initializeApp({
+        credential: cert(serviceAccount)
       });
-      return admin;
     } catch (err) {
       console.error('[FCM Admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:', err.message);
-      throw new Error(`FIREBASE_SERVICE_ACCOUNT_KEY failed: ${err.message}`);
+      throw new Error(`FIREBASE_SERVICE_ACCOUNT_KEY invalid: ${err.message}`);
     }
   }
 
@@ -50,30 +49,19 @@ function getFirebaseAdmin() {
   ) {
     try {
       const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
-      admin.initializeApp({
-        credential: admin.credential.cert({
+      return initializeApp({
+        credential: cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
           privateKey
         })
       });
-      return admin;
     } catch (err) {
       console.error('[FCM Admin] Failed to initialize with discrete credentials:', err.message);
     }
   }
 
-  // 3. Fallback to application default credentials (e.g. GOOGLE_APPLICATION_CREDENTIALS)
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault()
-    });
-    return admin;
-  } catch (err) {
-    console.error('[FCM Admin] Application default credentials failed:', err.message);
-  }
-
-  throw new Error('Firebase Admin credentials not configured on server.');
+  throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY in Vercel Environment Variables. Please redeploy after adding the key.');
 }
 
 const ALLOWED_CATEGORIES = ['dailyMotivation', 'studyReminders', 'jobAlerts', 'testNotification'];
@@ -92,16 +80,20 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed. Use POST.' });
   }
 
-  let firebaseAdmin;
+  let app;
   try {
-    firebaseAdmin = getFirebaseAdmin();
+    app = getFirebaseAdminApp();
   } catch (err) {
-    console.error('[FCM Admin] Initialization error:', err.message);
+    console.error('[FCM Admin] Init error:', err.message);
     return res.status(500).json({
       success: false,
       error: `Server initialization error: ${err.message}`
     });
   }
+
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const messaging = getMessaging(app);
 
   const authHeader = req.headers['authorization'];
   const apiKeyHeader = req.headers['x-api-key'];
@@ -123,7 +115,7 @@ export default async function handler(req, res) {
     const idToken = authHeader.split('Bearer ')[1]?.trim();
     if (idToken) {
       try {
-        const decoded = await firebaseAdmin.auth().verifyIdToken(idToken);
+        const decoded = await auth.verifyIdToken(idToken);
         authContext = {
           type: 'user',
           uid: decoded.uid,
@@ -166,7 +158,6 @@ export default async function handler(req, res) {
   let targetUserId = body.userId;
   const isBroadcast = Boolean(body.broadcast);
 
-  // If request is from an authenticated user (frontend test button), enforce user isolation
   if (authContext.type === 'user') {
     targetUserId = authContext.uid;
     if (isBroadcast) {
@@ -177,14 +168,10 @@ export default async function handler(req, res) {
     }
   }
 
-  const db = firebaseAdmin.firestore();
-  const messaging = firebaseAdmin.messaging();
-
   try {
     const tokensToTarget = []; // array of { token, docId, userId }
 
     if (isBroadcast && authContext.isServiceAdmin) {
-      // Query all eligible users
       const usersSnap = await db.collection('users').get();
       for (const userDoc of usersSnap.docs) {
         const userData = userDoc.data();
@@ -221,7 +208,6 @@ export default async function handler(req, res) {
 
       const userData = userDoc.data() || {};
 
-      // Check user preferences
       if (userData.notificationsEnabled === false) {
         return res.status(200).json({
           success: true,
@@ -240,7 +226,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Read device tokens
       const tokensSnap = await userDocRef.collection('fcm_tokens').get();
       tokensSnap.forEach((tDoc) => {
         const t = tDoc.data()?.token;
@@ -249,7 +234,6 @@ export default async function handler(req, res) {
         }
       });
 
-      // Check fallback array on root user doc
       if (tokensToTarget.length === 0 && Array.isArray(userData.fcmTokens)) {
         userData.fcmTokens.forEach((t) => {
           if (t && typeof t === 'string' && !tokensToTarget.some((x) => x.token === t)) {
@@ -268,7 +252,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Chunk into batches of up to 500 (FCM sendEachForMulticast limit)
     const tokenStrings = tokensToTarget.map((item) => item.token);
     let totalSuccess = 0;
     let totalFailure = 0;
@@ -304,7 +287,6 @@ export default async function handler(req, res) {
       totalSuccess += fcmResponse.successCount;
       totalFailure += fcmResponse.failureCount;
 
-      // Identify expired/invalid tokens for automatic pruning
       if (fcmResponse.failureCount > 0) {
         fcmResponse.responses.forEach((resp, idx) => {
           if (!resp.success) {
@@ -320,7 +302,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Prune stale tokens asynchronously in the background
     if (staleTokens.length > 0) {
       for (const stale of staleTokens) {
         try {
@@ -337,7 +318,7 @@ export default async function handler(req, res) {
               .collection('users')
               .doc(stale.userId)
               .update({
-                fcmTokens: admin.firestore.FieldValue.arrayRemove(stale.token)
+                fcmTokens: FieldValue.arrayRemove(stale.token)
               });
           }
         } catch (cleanupErr) {
@@ -348,7 +329,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: `Push notification dispatched.`,
+      message: 'Push notification dispatched.',
       sentCount: totalSuccess,
       failureCount: totalFailure
     });
@@ -356,7 +337,7 @@ export default async function handler(req, res) {
     console.error('[FCM Dispatch Error]', err.message);
     return res.status(500).json({
       success: false,
-      error: 'An internal error occurred while dispatching the push notification.'
+      error: `FCM dispatch error: ${err.message}`
     });
   }
 }
