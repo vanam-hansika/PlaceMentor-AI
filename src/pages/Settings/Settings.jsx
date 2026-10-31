@@ -143,9 +143,9 @@ export default function Settings() {
   const handleTestNotification = async () => {
     setIsProcessingNotif(true);
     try {
-      const res = await messagingService.triggerLocalTestPush();
+      const res = await messagingService.triggerBackendTestPush(user);
       if (res.success) {
-        showToast('Test notification sent to your device! 🎉', 'success');
+        showToast(res.message || 'Live test push dispatched via FCM! 🚀', 'success');
       } else {
         showToast(res.error || 'Failed to trigger test notification.', 'error');
       }

@@ -227,6 +227,64 @@ export const messagingService = {
     });
   },
 
+  // Trigger end-to-end push test via the secure server backend (tests real FCM delivery)
+  async triggerBackendTestPush(user) {
+    if (!this.isPushSupported()) {
+      return { success: false, error: 'Web push is unsupported in this browser.' };
+    }
+    if (Notification.permission !== 'granted') {
+      return { success: false, error: 'Notification permission is not granted. Click "Enable Notifications" first.' };
+    }
+    if (!user) {
+      return { success: false, error: 'You must be signed in to perform an end-to-end push test.' };
+    }
+
+    try {
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/send-push', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          title: '🎉 PlaceMentor AI End-to-End Test',
+          body: 'Push delivery confirmed via FCM Server! Your device is ready to receive reminders.',
+          url: '/settings',
+          category: 'testNotification'
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.success) {
+        return {
+          success: false,
+          error: data.error || `Server responded with status ${response.status}.`
+        };
+      }
+
+      if (data.sentCount === 0) {
+        return {
+          success: false,
+          error: data.message || 'No registered device tokens found on server. Try disabling and re-enabling notifications.'
+        };
+      }
+
+      return {
+        success: true,
+        sentCount: data.sentCount,
+        message: `FCM push confirmed! Dispatched to ${data.sentCount} active device(s).`
+      };
+    } catch (err) {
+      console.warn('[FCM Backend Test Warning]', err);
+      return {
+        success: false,
+        error: `Could not reach push server: ${err.message}`
+      };
+    }
+  },
+
   // Trigger test notification locally via the active Service Worker
   async triggerLocalTestPush() {
     if (!this.isPushSupported()) {

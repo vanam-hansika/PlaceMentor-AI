@@ -17,6 +17,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { aiOpportunityService, stripHtml, isIndiaLocation } from '../../services/ai/aiOpportunityService';
 import { safeStorage, fileStorage, openNoteDocument } from '../../utils/safeStorage';
 import { getAllRoadmaps } from '../../services/roadmap/roadmapService';
+import { dispatchJobAlert } from '../../services/notifications/jobAlertService';
 import { useApp } from '../../context/AppContext';
 import './Admin.css';
 
@@ -303,6 +304,8 @@ export default function Admin() {
         await updateDoc(doc(db, 'internships', item.id), { status: 'Published' }).catch(() => {});
       }
       showToast(`Published ${item.company || 'Opportunity'} to Student Portal! 🚀`, 'success');
+      // Dispatch verified job alert via secure serverless endpoint to n8n
+      dispatchJobAlert({ ...item, type: targetType, status: 'Published' });
     } catch {
       showToast('Item published successfully!', 'success');
     }
@@ -411,6 +414,9 @@ export default function Admin() {
         const newObj = { ...payload, id: `job-${Date.now()}`, isAiCollected: false };
         setJobs(prev => [newObj, ...prev]);
         await addDoc(collection(db, 'jobs'), newObj).catch(() => {});
+        if (newObj.status === 'Published') {
+          dispatchJobAlert({ ...newObj, type: 'job' });
+        }
       }
       showToast('Job opportunity saved!', 'success');
     } else if (modalType === 'internship') {
@@ -431,6 +437,9 @@ export default function Admin() {
         const newObj = { ...payload, id: `intern-${Date.now()}`, isAiCollected: false };
         setInternships(prev => [newObj, ...prev]);
         await addDoc(collection(db, 'internships'), newObj).catch(() => {});
+        if (newObj.status === 'Published') {
+          dispatchJobAlert({ ...newObj, type: 'internship' });
+        }
       }
       showToast('Internship saved!', 'success');
     } else if (modalType === 'note') {

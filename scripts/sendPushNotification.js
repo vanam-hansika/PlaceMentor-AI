@@ -34,39 +34,53 @@ async function main() {
   }
 
   // Check credentials
-  const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || resolve(process.cwd(), 'serviceAccountKey.json');
-  if (!existsSync(keyPath)) {
-    console.warn(`\n⚠️  Service Account key not found at: ${keyPath}`);
-    console.warn('   To send live FCM messages to real devices from the server:');
-    console.warn('   1. Go to Firebase Console > Project Settings > Service accounts');
-    console.warn('   2. Click "Generate new private key"');
-    console.warn('   3. Place the file at serviceAccountKey.json or set GOOGLE_APPLICATION_CREDENTIALS\n');
-    console.log('ℹ️  Displaying sample payload structure that would be dispatched:\n');
-
-    const samplePayload = {
-      notification: {
-        title: '🎯 Target Company Update: Google SDE-1',
-        body: 'New batch hiring posted! Check the updated roadmap.',
-      },
-      data: {
-        url: '/companies',
-        category: 'jobAlerts',
-        timestamp: String(Date.now())
-      },
-      webpush: {
-        fcmOptions: {
-          link: 'https://your-domain.web.app/companies'
-        }
-      }
-    };
-    console.log(JSON.stringify(samplePayload, null, 2));
-    return;
+  let credential;
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    try {
+      const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+      const sa = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      credential = admin.default.credential.cert(sa);
+    } catch (e) {
+      console.warn('⚠️ Could not parse FIREBASE_SERVICE_ACCOUNT_KEY JSON:', e.message);
+    }
   }
 
-  const serviceAccount = JSON.parse(readFileSync(keyPath, 'utf8'));
+  if (!credential) {
+    const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || resolve(process.cwd(), 'serviceAccountKey.json');
+    if (!existsSync(keyPath)) {
+      console.warn(`\n⚠️  Service Account key not found at: ${keyPath}`);
+      console.warn('   To send live FCM messages to real devices from the server:');
+      console.warn('   1. Go to Firebase Console > Project Settings > Service accounts');
+      console.warn('   2. Click "Generate new private key"');
+      console.warn('   3. Place the file at serviceAccountKey.json, or set FIREBASE_SERVICE_ACCOUNT_KEY\n');
+      console.log('ℹ️  Displaying sample payload structure that would be dispatched:\n');
+
+      const samplePayload = {
+        notification: {
+          title: '🎯 Target Company Update: Google SDE-1',
+          body: 'New batch hiring posted! Check the updated roadmap.',
+        },
+        data: {
+          url: '/companies',
+          category: 'jobAlerts',
+          timestamp: String(Date.now())
+        },
+        webpush: {
+          fcmOptions: {
+            link: 'https://your-domain.web.app/companies'
+          }
+        }
+      };
+      console.log(JSON.stringify(samplePayload, null, 2));
+      return;
+    }
+
+    const serviceAccount = JSON.parse(readFileSync(keyPath, 'utf8'));
+    credential = admin.default.credential.cert(serviceAccount);
+  }
 
   admin.default.initializeApp({
-    credential: admin.default.credential.cert(serviceAccount)
+    credential
   });
 
   const messaging = admin.default.messaging();

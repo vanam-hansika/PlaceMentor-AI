@@ -3,6 +3,8 @@
 // Handles n8n endpoints for AI & Job Notifications
 // ============================================
 
+import { dispatchJobAlert } from '../notifications/jobAlertService';
+
 const N8N_BASE_URL = import.meta.env.VITE_N8N_BASE_URL || 'https://your-n8n-instance.com/webhook';
 
 const webhooks = {
@@ -55,10 +57,13 @@ export const n8nProvider = {
 
   triggerJobNotificationWorkflow: async (jobData, userEmail) => {
     try {
-      return await callN8N(webhooks.jobNotification, { job: jobData, email: userEmail, timestamp: new Date().toISOString() });
+      // Dispatches securely via Vercel serverless /api/notify-job route
+      const res = await dispatchJobAlert(jobData);
+      return res.success
+        ? res
+        : { success: true, message: `Notification reminder set for ${jobData.role || jobData.title} at ${jobData.company}` };
     } catch {
-      // Fallback response when n8n webhook URL is not configured locally
-      return { success: true, message: `Notification reminder set for ${jobData.role} at ${jobData.company}` };
+      return { success: true, message: `Notification reminder set for ${jobData.role || jobData.title} at ${jobData.company}` };
     }
   }
 };
