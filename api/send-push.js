@@ -3,7 +3,70 @@
 // Vercel Serverless Function (Node.js ESM)
 // ============================================
 
+import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getMessaging } from 'firebase-admin/messaging';
+
 const ALLOWED_CATEGORIES = ['dailyMotivation', 'studyReminders', 'jobAlerts', 'testNotification'];
+const FIREBASE_WEB_API_KEY = process.env.VITE_FIREBASE_API_KEY || 'AIzaSyDoL7n4zoDqv09TQHhaIeHMJHKcRFFY9Ks';
+
+function getFirebaseAdminApp() {
+  if (getApps().length > 0) {
+    return getApp();
+  }
+
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY in Vercel Environment Variables. Please redeploy after adding the key.');
+  }
+
+  let raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.trim();
+  if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith('"') && raw.endsWith('"'))) {
+    raw = raw.slice(1, -1).trim();
+  }
+  if (!raw.startsWith('{') && raw.length > 50) {
+    try {
+      const decoded = Buffer.from(raw, 'base64').toString('utf8');
+      if (decoded.startsWith('{')) raw = decoded;
+    } catch {}
+  }
+
+  let serviceAccount;
+  try {
+    serviceAccount = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch (parseErr) {
+    throw new Error(`Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY JSON: ${parseErr.message}`);
+  }
+
+  if (serviceAccount.private_key) {
+    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+  }
+
+  return initializeApp({
+    credential: cert(serviceAccount)
+  });
+}
+
+// Verify Firebase user ID token using Google's Identity Toolkit REST API
+async function verifyFirebaseIdToken(idToken) {
+  if (!idToken) return null;
+  try {
+    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_WEB_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken })
+    });
+    const data = await res.json();
+    if (res.ok && data.users?.[0]?.localId) {
+      return {
+        uid: data.users[0].localId,
+        email: data.users[0].email
+      };
+    }
+  } catch (err) {
+    console.warn('[Google Auth Verify Warning]', err.message);
+  }
+  return null;
+}
 
 export default async function handler(req, res) {
   // Set CORS headers
@@ -19,137 +82,99 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed. Use POST.' });
   }
 
+  let app;
   try {
-    // Dynamic import to safely capture any module loading errors
-    const { initializeApp, getApps, getApp, cert } = await import('firebase-admin/app');
-    const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
-    const { getMessaging } = await import('firebase-admin/messaging');
-    const { getAuth } = await import('firebase-admin/auth');
+    app = getFirebaseAdminApp();
+  } catch (err) {
+    console.error('[FCM Admin] Init error:', err.message);
+    return res.status(500).json({
+      success: false,
+      error: `Server initialization error: ${err.message}`
+    });
+  }
 
-    // Initialize or get app
-    let app;
-    if (getApps().length > 0) {
-      app = getApp();
-    } else {
-      if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-        return res.status(500).json({
-          success: false,
-          error: 'Missing FIREBASE_SERVICE_ACCOUNT_KEY in Vercel Environment Variables. Please redeploy after adding the key.'
-        });
-      }
+  const db = getFirestore(app);
+  const messaging = getMessaging(app);
 
-      let raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.trim();
-      if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith('"') && raw.endsWith('"'))) {
-        raw = raw.slice(1, -1).trim();
-      }
-      if (!raw.startsWith('{') && raw.length > 50) {
-        try {
-          const decoded = Buffer.from(raw, 'base64').toString('utf8');
-          if (decoded.startsWith('{')) raw = decoded;
-        } catch {}
-      }
+  const authHeader = req.headers['authorization'];
+  const apiKeyHeader = req.headers['x-api-key'];
+  const expectedSecret = process.env.N8N_PUSH_SECRET;
 
-      let serviceAccount;
-      try {
-        serviceAccount = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      } catch (parseErr) {
-        return res.status(500).json({
-          success: false,
-          error: `Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY JSON: ${parseErr.message}`
-        });
-      }
+  let authContext = null;
 
-      if (serviceAccount.private_key) {
-        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-      }
-
-      app = initializeApp({
-        credential: cert(serviceAccount)
-      });
-    }
-
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const messaging = getMessaging(app);
-
-    const authHeader = req.headers['authorization'];
-    const apiKeyHeader = req.headers['x-api-key'];
-    const expectedSecret = process.env.N8N_PUSH_SECRET;
-
-    let authContext = null;
-
-    // 1. Validate n8n shared secret (via x-api-key or Bearer secret)
-    if (expectedSecret && expectedSecret.trim().length > 0) {
-      if (apiKeyHeader && apiKeyHeader === expectedSecret) {
-        authContext = { type: 'n8n', isServiceAdmin: true };
-      } else if (authHeader && authHeader === `Bearer ${expectedSecret}`) {
-        authContext = { type: 'n8n', isServiceAdmin: true };
-      }
-    }
-
-    // 2. Validate Firebase User ID Token (for frontend test button)
-    if (!authContext && authHeader && authHeader.startsWith('Bearer ')) {
-      const idToken = authHeader.split('Bearer ')[1]?.trim();
-      if (idToken) {
-        try {
-          const decoded = await auth.verifyIdToken(idToken);
-          authContext = {
-            type: 'user',
-            uid: decoded.uid,
-            email: decoded.email,
-            isServiceAdmin: false
-          };
-        } catch (tokenErr) {
-          return res.status(401).json({
-            success: false,
-            error: 'Invalid or expired Firebase authentication token.'
-          });
-        }
-      }
-    }
-
-    // Fallback if no secret is set yet in development
-    if (!authContext && !expectedSecret) {
+  // 1. Validate n8n shared secret (via x-api-key or Bearer secret)
+  if (expectedSecret && expectedSecret.trim().length > 0) {
+    if (apiKeyHeader && apiKeyHeader === expectedSecret) {
+      authContext = { type: 'n8n', isServiceAdmin: true };
+    } else if (authHeader && authHeader === `Bearer ${expectedSecret}`) {
       authContext = { type: 'n8n', isServiceAdmin: true };
     }
+  }
 
-    if (!authContext) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized: Missing or invalid authentication credentials.'
-      });
-    }
-
-    // Parse and validate payload
-    const body = req.body || {};
-    const title = typeof body.title === 'string' ? body.title.trim().slice(0, 120) : '';
-    const messageBody = typeof body.body === 'string' ? body.body.trim().slice(0, 300) : '';
-    const url = typeof body.url === 'string' && body.url.trim().length > 0 ? body.url.trim() : '/dashboard';
-    const category = body.category && ALLOWED_CATEGORIES.includes(body.category)
-      ? body.category
-      : 'dailyMotivation';
-
-    if (!title || !messageBody) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required payload fields: title and body are required.'
-      });
-    }
-
-    // Target selection
-    let targetUserId = body.userId;
-    const isBroadcast = Boolean(body.broadcast);
-
-    if (authContext.type === 'user') {
-      targetUserId = authContext.uid;
-      if (isBroadcast) {
-        return res.status(403).json({
+  // 2. Validate Firebase User ID Token (for frontend test button)
+  if (!authContext && authHeader && authHeader.startsWith('Bearer ')) {
+    const idToken = authHeader.split('Bearer ')[1]?.trim();
+    if (idToken) {
+      const decodedUser = await verifyFirebaseIdToken(idToken);
+      if (decodedUser) {
+        authContext = {
+          type: 'user',
+          uid: decodedUser.uid,
+          email: decodedUser.email,
+          isServiceAdmin: false
+        };
+      } else {
+        return res.status(401).json({
           success: false,
-          error: 'Forbidden: Broadcast notifications can only be triggered by automated services.'
+          error: 'Invalid or expired Firebase authentication token.'
         });
       }
     }
+  }
 
+  // Fallback if no secret is set yet in development
+  if (!authContext && !expectedSecret) {
+    authContext = { type: 'n8n', isServiceAdmin: true };
+  }
+
+  if (!authContext) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized: Missing or invalid authentication credentials.'
+    });
+  }
+
+  // Parse and validate payload
+  const body = req.body || {};
+  const title = typeof body.title === 'string' ? body.title.trim().slice(0, 120) : '';
+  const messageBody = typeof body.body === 'string' ? body.body.trim().slice(0, 300) : '';
+  const url = typeof body.url === 'string' && body.url.trim().length > 0 ? body.url.trim() : '/dashboard';
+  const category = body.category && ALLOWED_CATEGORIES.includes(body.category)
+    ? body.category
+    : 'dailyMotivation';
+
+  if (!title || !messageBody) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required payload fields: title and body are required.'
+    });
+  }
+
+  // Target selection
+  let targetUserId = body.userId;
+  const isBroadcast = Boolean(body.broadcast);
+
+  if (authContext.type === 'user') {
+    targetUserId = authContext.uid;
+    if (isBroadcast) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: Broadcast notifications can only be triggered by automated services.'
+      });
+    }
+  }
+
+  try {
     const tokensToTarget = []; // array of { token, docId, userId }
 
     if (isBroadcast && authContext.isServiceAdmin) {
