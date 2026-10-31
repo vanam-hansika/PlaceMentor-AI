@@ -7,7 +7,11 @@ import { getToken, onMessage, deleteToken } from 'firebase/messaging';
 import { doc, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 import { db, getFirebaseMessaging } from '../../config/firebase';
 
-const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
+const VAPID_KEY =
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_VAPID_KEY) ||
+  import.meta.env?.NEXT_PUBLIC_FIREBASE_VAPID_KEY ||
+  import.meta.env?.VITE_FIREBASE_VAPID_KEY ||
+  '';
 
 export const messagingService = {
   // Check if browser environment supports Web Push Notifications
@@ -110,7 +114,7 @@ export const messagingService = {
         if (tokenErr.message?.includes('vapidKey') || !VAPID_KEY) {
           return {
             success: false,
-            error: 'Missing or invalid Web Push VAPID key. Please add VITE_FIREBASE_VAPID_KEY to your .env from Firebase Console > Project Settings > Cloud Messaging.'
+            error: 'Missing or invalid Web Push VAPID key. Please add NEXT_PUBLIC_FIREBASE_VAPID_KEY to your Vercel/environment variables from Firebase Console > Project Settings > Cloud Messaging > Web Push certificates.'
           };
         }
         return {

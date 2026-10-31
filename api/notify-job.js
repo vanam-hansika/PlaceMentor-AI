@@ -6,7 +6,7 @@
 import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-const FIREBASE_WEB_API_KEY = process.env.VITE_FIREBASE_API_KEY || 'AIzaSyDoL7n4zoDqv09TQHhaIeHMJHKcRFFY9Ks';
+const FIREBASE_WEB_API_KEY = process.env.VITE_FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyDoL7n4zoDqv09TQHhaIeHMJHKcRFFY9Ks';
 
 function getFirebaseAdminApp() {
   if (getApps().length > 0) {

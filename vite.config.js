@@ -4,6 +4,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
+  define: {
+    'process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY': JSON.stringify(
+      process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || process.env.VITE_FIREBASE_VAPID_KEY || ''
+    )
+  },
   plugins: [
     react(),
     VitePWA({
